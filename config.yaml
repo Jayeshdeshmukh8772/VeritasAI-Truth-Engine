@@ -38,7 +38,7 @@ models:
     supports_images: true
     roles: [dispatch, review, combine]
   - name: cerebras
-    model_id: llama-3.3-70b
+    model_id: gpt-oss-120b
     enabled: true
     daily_limit: 300
     timeout_s: 20
@@ -53,8 +53,8 @@ models:
     max_retries: 1
     supports_images: false
     roles: [dispatch, review]
-  - name: openrouter_deepseek
-    model_id: deepseek/deepseek-r1:free
+  - name: openrouter_llama3
+    model_id: meta-llama/llama-3.3-70b-instruct:free
     enabled: true
     daily_limit: 50
     timeout_s: 45
@@ -69,8 +69,8 @@ models:
     max_retries: 1
     supports_images: false
     roles: [dispatch, review]
-  - name: openrouter_llama4
-    model_id: meta-llama/llama-4-maverick:free
+  - name: openrouter_gemma
+    model_id: google/gemma-4-31b-it:free
     enabled: true
     daily_limit: 50
     timeout_s: 40

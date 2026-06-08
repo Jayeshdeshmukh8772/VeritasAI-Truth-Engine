@@ -15,7 +15,7 @@ from core.result import LLMResult, LLMStatus
 class CerebrasAdapter(LLMAdapter):
     """Adapter for Cerebras Cloud SDK using OpenAI-compatible chat completions."""
 
-    def __init__(self, model_id: str = "llama-3.3-70b") -> None:
+    def __init__(self, model_id: str = "gpt-oss-120b") -> None:
         """
         Initialize Cerebras adapter.
 

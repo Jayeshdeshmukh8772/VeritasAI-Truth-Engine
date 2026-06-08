@@ -44,7 +44,7 @@ class ModelCardComponent:
                 suffix = f"Skipped — {res.error_msg or 'No API key configured'}"
             else:
                 icon = "❌"
-                suffix = f"Failed — {res.error_type or 'Error'}"
+                suffix = f"Failed — {res.error_type or 'Error'}: {res.error_msg or 'No details'}"
 
             label = f"{icon} {res.model}  ·  {suffix}  ·  {res.latency_ms}ms"
 

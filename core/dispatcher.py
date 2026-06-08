@@ -145,18 +145,20 @@ class AsyncDispatcher:
         name_lower = name.lower()
         if "groq" in name_lower:
             return "groq"
-        elif "gemini" in name_lower:
+        elif "gemini" in name_lower and "openrouter" not in name_lower:
             return "gemini"
         elif "cerebras" in name_lower:
             return "cerebras"
         elif "mistral" in name_lower:
             return "mistral"
-        elif "nvidia" in name_lower:
+        elif "nvidia" in name_lower and "openrouter" not in name_lower:
             return "nvidia_nim"
-        elif "deepseek" in name_lower:
-            return "openrouter_deepseek"
-        elif "llama" in name_lower:
-            return "openrouter_llama4"
+        elif "openrouter" in name_lower and "llama" in name_lower:
+            return "openrouter_llama3"
+        elif "openrouter" in name_lower and "gemma" in name_lower:
+            return "openrouter_gemma"
+        elif "openrouter" in name_lower:
+            return "openrouter_llama3"  # default fallback for any openrouter
         return "cohere"
 
     async def _execute_and_track(self, adapter: LLMAdapter, prompt: str, image_b64: Optional[str], slug: str) -> LLMResult:

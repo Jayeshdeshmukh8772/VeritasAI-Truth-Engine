@@ -52,6 +52,14 @@ class RateTracker:
             return 0
         return data[model_name].get("count", 0)
 
+    def get_tokens(self, model_name: str) -> int:
+        """Get current token usage for a model today."""
+        data = self._load()
+        today = datetime.now().strftime("%Y-%m-%d")
+        if model_name not in data or data[model_name].get("date") != today:
+            return 0
+        return data[model_name].get("tokens", 0)
+
     def check_quota(self, provider: str, daily_limit: int) -> bool:
         """Check if provider has remaining quota."""
         return self.get_count(provider) < daily_limit

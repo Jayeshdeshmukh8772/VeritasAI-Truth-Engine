@@ -20,11 +20,14 @@ class OpenRouterAdapter(LLMAdapter):
         Initialize OpenRouter adapter with fallback model selection.
         
         Args:
-            model_id: The OpenRouter model identifier to use (default: deepseek-r1:free, falls back to llama-4-maverick:free)
+            model_id: The OpenRouter model identifier to use
         """
-        self.primary_model = "deepseek/deepseek-r1:free"
-        self.fallback_model = "meta-llama/llama-4-maverick:free"
+        self.primary_model = "meta-llama/llama-3.3-70b-instruct:free"
+        self.fallback_model = "google/gemma-4-31b-it:free"
         self.model_id = model_id if model_id else self.primary_model
+        # Generate a unique display name from the model_id to avoid collisions
+        # when multiple OpenRouterAdapter instances are used
+        self._display_name = self._derive_display_name(self.model_id)
         api_key = os.getenv("OPENROUTER_API_KEY", "")
         self.client = AsyncOpenAI(
             api_key=api_key,
@@ -48,7 +51,10 @@ class OpenRouterAdapter(LLMAdapter):
         if not self.client or not os.getenv("OPENROUTER_API_KEY"):
             return LLMResult(self.name, LLMStatus.SKIPPED, None, "missing_key", "OpenRouter API key not configured", elapsed())
 
-        models_to_try = [self.model_id, self.fallback_model] if self.model_id != self.fallback_model else [self.primary_model, self.fallback_model]
+        models_to_try = [self.model_id]
+        # Add fallback if the configured model isn't already the fallback
+        if self.model_id != self.fallback_model:
+            models_to_try.append(self.fallback_model)
 
         for model in models_to_try:
             try:
@@ -63,6 +69,9 @@ class OpenRouterAdapter(LLMAdapter):
                 
                 text = response.choices[0].message.content if response.choices else None
                 if not text or len(text.strip().split()) < 20:
+                    # Try fallback model if response is too short
+                    if model != models_to_try[-1]:
+                        continue
                     return LLMResult(self.name, LLMStatus.FAILED, None, "empty_response", "Response below threshold", elapsed())
                 
                 tokens = getattr(response.usage, 'total_tokens', 0) if hasattr(response, 'usage') else 0
@@ -77,10 +86,10 @@ class OpenRouterAdapter(LLMAdapter):
                 if any(x in err_str for x in ['429', 'rate limit']):
                     continue
                 if any(x in err_str for x in ['500', '502', '503']):
-                    if model == self.primary_model:
+                    if model != models_to_try[-1]:
                         continue
                     return LLMResult(self.name, LLMStatus.FAILED, None, "server_error", f"Server error: {str(e)[:100]}", elapsed())
-                if any(x in err_str for x in ['model not found', '404']) and model == self.primary_model:
+                if any(x in err_str for x in ['model not found', '404', 'unavailable']) and model != models_to_try[-1]:
                     continue
                 return LLMResult(self.name, LLMStatus.FAILED, None, type(e).__name__, str(e)[:100], elapsed())
 
@@ -104,12 +113,30 @@ class OpenRouterAdapter(LLMAdapter):
         """
         return self.model_id
 
+    @staticmethod
+    def _derive_display_name(model_id: str) -> str:
+        """
+        Derive a unique human-readable name from the model_id.
+        e.g. 'meta-llama/llama-3.3-70b-instruct:free' -> 'OpenRouter-Llama-3.3-70b-Instruct'
+             'google/gemma-4-31b-it:free' -> 'OpenRouter-Gemma-4-31b-It'
+        """
+        if not model_id:
+            return "OpenRouter"
+        # Strip version/pricing suffix (':free', ':latest', etc.)
+        clean = model_id.split(":")[0]
+        # Take just the model name after '/'
+        parts = clean.split("/")
+        short = parts[-1] if len(parts) > 1 else parts[0]
+        # Title case with hyphens
+        readable = "-".join(word.capitalize() for word in short.replace("_", "-").split("-"))
+        return f"OpenRouter-{readable}"
+
     @property
     def name(self) -> str:
         """
-        Get display name.
+        Get unique display name for this OpenRouter instance.
         
         Returns:
-            Human-readable adapter name
+            Human-readable adapter name unique to the model_id
         """
-        return "OpenRouter"
+        return self._display_name

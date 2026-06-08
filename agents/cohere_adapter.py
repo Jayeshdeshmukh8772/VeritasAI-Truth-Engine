@@ -1,21 +1,21 @@
 """
 VeritasAI Cohere Integration Client.
 Advanced language models for production-grade applications.
+Compatible with Cohere SDK v7.x (uses message parameter, not messages).
 """
 
 import os
 import asyncio
 import time
 from typing import Optional
-from cohere import AsyncClient
 from core.adapter import LLMAdapter
 from core.result import LLMResult, LLMStatus
 
 
 class CohereAdapter(LLMAdapter):
-    """Adapter for Cohere API."""
+    """Adapter for Cohere API (SDK v7.x)."""
 
-    def __init__(self, model_id: str = "command-r-plus"):
+    def __init__(self, model_id: str = "command-r-plus-08-2024"):
         """
         Initialize Cohere adapter.
         
@@ -24,11 +24,19 @@ class CohereAdapter(LLMAdapter):
         """
         self.model_id = model_id
         api_key = os.getenv("COHERE_API_KEY", "")
-        self.client = AsyncClient(api_key=api_key) if api_key else None
+        self.client = None
+        if api_key:
+            try:
+                from cohere import AsyncClient
+                self.client = AsyncClient(api_key=api_key)
+            except ImportError:
+                pass
 
     async def call(self, prompt: str, image_b64: Optional[str] = None) -> LLMResult:
         """
         Make an async call to Cohere API.
+        
+        Cohere SDK v7.x uses `message` (str) not `messages` (list).
         
         Args:
             prompt: The text prompt to send to the model
@@ -46,8 +54,8 @@ class CohereAdapter(LLMAdapter):
         try:
             response = await asyncio.wait_for(
                 self.client.chat(
+                    message=prompt,
                     model=self.model_id,
-                    messages=[{"role": "user", "content": prompt}],
                     temperature=0.7
                 ),
                 timeout=60.0
@@ -57,7 +65,12 @@ class CohereAdapter(LLMAdapter):
             if not text or len(text.strip().split()) < 20:
                 return LLMResult(self.name, LLMStatus.FAILED, None, "empty_response", "Response below threshold", elapsed())
             
-            tokens = getattr(response, 'token_count', {}).get('output_tokens', 0) if hasattr(response, 'token_count') else 0
+            # Extract token count — v7.x uses meta.tokens
+            tokens = 0
+            if hasattr(response, 'meta') and response.meta:
+                if hasattr(response.meta, 'tokens') and response.meta.tokens:
+                    tokens = getattr(response.meta.tokens, 'output_tokens', 0) or 0
+            
             return LLMResult(self.name, LLMStatus.SUCCESS, text.strip(), None, None, elapsed(), tokens)
 
         except asyncio.TimeoutError:
