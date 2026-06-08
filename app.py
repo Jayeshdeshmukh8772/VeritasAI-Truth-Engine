@@ -645,11 +645,10 @@ def _render_results(output: FinalOutput, enhanced: Optional[EnhancedQuery]) -> N
             from ui.tts import TTSComponent
             TTSComponent.render_button(output.answer, "🔊 Read Aloud")
         with action_col2:
-            import html
-            import json
-            js_safe_answer = html.escape(json.dumps(output.answer))
+            import base64
+            b64_answer = base64.b64encode(output.answer.encode('utf-8')).decode('utf-8')
             button_html = (
-                f'<button onclick="navigator.clipboard.writeText({js_safe_answer}).then(() => {{ '
+                f'<button onclick="navigator.clipboard.writeText(decodeURIComponent(escape(atob(\'{b64_answer}\')))).then(() => {{ '
                 f'this.textContent=\'✅ Copied!\'; setTimeout(() => this.textContent=\'📋 Copy Answer\', 1500); '
                 f'}})" style="background: transparent; border: 0.5px solid #1e2535; border-radius: 7px; '
                 f'color: #64748b; font-family: \'Outfit\', sans-serif; font-size: 12px; padding: 7px 14px; '
