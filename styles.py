@@ -731,7 +731,12 @@ def render_model_card_html(
   <div class="vai-trust-bar">
     <div class="vai-trust-bar-fill {fill_class}" style="width:{bar_width}%"></div>
   </div>
-  <div class="vai-mc-response">{response}</div>
+  <details style="margin-top: 8px; cursor: pointer;">
+    <summary style="font-size: 11px; color: #64748b; outline: none; margin-bottom: 6px; font-weight: 500;">
+      View Raw Response
+    </summary>
+    <div class="vai-mc-response" style="cursor: auto;">{response}</div>
+  </details>
   {outlier_html}
   {peer_html}
 </div>

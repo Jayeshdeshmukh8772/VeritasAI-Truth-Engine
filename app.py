@@ -289,13 +289,56 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
                 )
 
     fast_mode = st.session_state.get("fast_mode", False)
-    if fast_mode:
-        # Fast mode: only use Groq, Gemini, Cerebras
-        fast_adapters = state.adapters[:3]
-        fast_dispatcher = AsyncDispatcher(fast_adapters, state.rate_tracker, config)
-        raw_results = await fast_dispatcher.dispatch_all(dispatch_prompt, image_b64)
-    else:
-        raw_results = await state.dispatcher.dispatch_all(dispatch_prompt, image_b64)
+    active_adapters = state.adapters[:3] if fast_mode else state.adapters
+
+    # Initialize model statuses for dynamic display
+    model_statuses = {}
+    model_cfg_map = {cfg['name']: cfg for cfg in config.get('models', [])}
+    for adapter in active_adapters:
+        slug = state.dispatcher._get_slug(adapter.name)
+        cfg = model_cfg_map.get(slug, {"enabled": True, "daily_limit": 100})
+        
+        if not cfg.get("enabled", True):
+            model_statuses[adapter.name] = {"status": "skipped", "latency_ms": None}
+        elif not state.rate_tracker.check_quota(slug, cfg.get("daily_limit", 100)):
+            model_statuses[adapter.name] = {"status": "skipped", "latency_ms": None}
+        else:
+            model_statuses[adapter.name] = {"status": "loading", "latency_ms": None}
+
+    # Render initial dynamic loading row
+    status_placeholder = st.empty()
+    with status_placeholder.container():
+        st.info("🧠 VeritasAI is querying the council...")
+        st.markdown(render_dispatch_pills(model_statuses), unsafe_allow_html=True)
+
+    # Wrap adapter call in an async task that updates the status row upon completion
+    async def run_and_update_task(adapter, prompt, image_b64, slug):
+        if model_statuses[adapter.name]["status"] == "skipped":
+            return await state.dispatcher._build_skipped(adapter.name, "disabled")
+            
+        result = await state.dispatcher._execute_and_track(adapter, prompt, image_b64, slug)
+        
+        status_str = result.status.value  # "success" | "failed" | "skipped"
+        model_statuses[adapter.name] = {
+            "status": status_str,
+            "latency_ms": result.latency_ms if status_str == "success" else None
+        }
+        
+        # Rerender dynamic pills
+        with status_placeholder.container():
+            st.info("🧠 VeritasAI is querying the council...")
+            st.markdown(render_dispatch_pills(model_statuses), unsafe_allow_html=True)
+            
+        return result
+
+    # Execute all adapter calls concurrently
+    tasks = []
+    for adapter in active_adapters:
+        slug = state.dispatcher._get_slug(adapter.name)
+        tasks.append(run_and_update_task(adapter, dispatch_prompt, image_b64, slug))
+
+    raw_results = await asyncio.gather(*tasks)
+    status_placeholder.empty()
 
     successful = [r for r in raw_results if r.status == LLMStatus.SUCCESS]
 
