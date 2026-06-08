@@ -64,7 +64,7 @@ def verify_admin_credentials() -> bool:
                     stored_hash = env_hash.encode("utf-8")
                 else:
                     # Default fallback for local dev: password is "admin123"
-                    stored_hash = b"$2b$12$K3vY1qg.qZl/I844zE78v.vF3TjS5p6WkIexyB1Fw4X6Z4C2lVwDe"
+                    stored_hash = b"$2b$12$P8StVgtXwPLSWuYx9j7pGu96QMh5jaWwh4rGzuQGleappH/38QGEi"
 
             try:
                 if bcrypt.checkpw(password_input.encode("utf-8"), stored_hash):
