@@ -1,0 +1,28 @@
+[theme]
+# VeritasAI dark-ish professional theme
+primaryColor = "#5c6bc0"
+backgroundColor = "#0e1117"
+secondaryBackgroundColor = "#1a1d27"
+textColor = "#e8eaf6"
+font = "sans serif"
+
+[client]
+showErrorDetails = true
+toolbarMode = "minimal"
+
+[logger]
+level = "info"
+messageFormat = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+
+[server]
+port = 8501
+headless = true
+runOnSave = false
+maxUploadSize = 50
+enableXsrfProtection = true
+enableCORS = false
+
+[browser]
+gatherUsageStats = false
+serverAddress = "localhost"
+serverPort = 8501

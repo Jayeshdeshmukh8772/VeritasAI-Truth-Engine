@@ -1,0 +1,97 @@
+app:
+  name: VeritasAI
+  version: 1.0.0
+  max_input_chars: 2000
+  session_rate_limit: 10 # maximum queries per hour per session
+  min_responses_required: 2 # minimum successful responses to proceed with consensus
+
+pipeline:
+  enhancer_model: groq
+  combiner_model: auto # uses the fastest successful model from stage 2
+  consensus_threshold: 0.5 # below this triggers low consensus warning
+  trust_threshold: 0.45 # below this flags an individual model as hallucinating
+  semantic_weight: 0.6 # weight for the mathematical signal
+  peer_weight: 0.4 # weight for the social peer ranking signal
+
+detector:
+  eps: 0.25 # DBSCAN cluster distance threshold (cosine distance)
+  min_samples: 2 # minimum models to form a valid consensus cluster
+  embedding_model: all-MiniLM-L6-v2
+  short_response_min_words: 20 # filter out responses shorter than this
+
+models:
+  - name: groq
+    model_id: llama-3.3-70b-versatile
+    enhancer_model_id: llama-3.1-8b-instant
+    enabled: true
+    daily_limit: 100
+    timeout_s: 30
+    max_retries: 2
+    supports_images: false
+    roles: [enhancer, dispatch, review, combine]
+  - name: gemini
+    model_id: gemini-2.5-flash
+    enabled: true
+    daily_limit: 200
+    timeout_s: 30
+    max_retries: 2
+    supports_images: true
+    roles: [dispatch, review, combine]
+  - name: cerebras
+    model_id: llama-3.3-70b
+    enabled: true
+    daily_limit: 300
+    timeout_s: 20
+    max_retries: 1
+    supports_images: false
+    roles: [dispatch, review]
+  - name: mistral
+    model_id: mistral-small-latest
+    enabled: true
+    daily_limit: 50
+    timeout_s: 40
+    max_retries: 1
+    supports_images: false
+    roles: [dispatch, review]
+  - name: openrouter_deepseek
+    model_id: deepseek/deepseek-r1:free
+    enabled: true
+    daily_limit: 50
+    timeout_s: 45
+    max_retries: 1
+    supports_images: false
+    roles: [dispatch, review]
+  - name: nvidia_nim
+    model_id: deepseek-ai/deepseek-v4-pro
+    enabled: true
+    daily_limit: 80
+    timeout_s: 30
+    max_retries: 1
+    supports_images: false
+    roles: [dispatch, review]
+  - name: openrouter_llama4
+    model_id: meta-llama/llama-4-maverick:free
+    enabled: true
+    daily_limit: 50
+    timeout_s: 40
+    max_retries: 1
+    supports_images: false
+    roles: [dispatch, review]
+
+features:
+  voice_input: true
+  image_input: true
+  webcam_input: true
+  tts_output: true
+  follow_up_suggestions: true
+  debate_mode: true
+  query_history: true
+  feedback: true
+  admin_dashboard: true
+  cache_enabled: true
+
+logging:
+  level: INFO
+  max_bytes: 10485760 # 10MB
+  backup_count: 5
+  db_encrypt: true
