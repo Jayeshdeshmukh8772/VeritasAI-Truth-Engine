@@ -625,7 +625,12 @@ def render_consensus_card(
 ) -> str:
     """Render the glassmorphic consensus answer card."""
     warning_html = ""
-    if high_dissent:
+    if models_used < 2:
+        warning_html = """
+<div class="vai-low-consensus-banner" style="background:#2b1a08; color:#f59e0b; border-color:#4a3008;">
+  ⚠ Only one model was available to respond. Consensus confidence is unavailable. Review the single response below.
+</div>"""
+    elif high_dissent:
         warning_html = """
 <div class="vai-low-consensus-banner" style="background:#2d1515; color:#ef4444; border-color:#5a2020;">
   ❌ High Dissent Warning — The active models returned highly contradictory viewpoints. Real-time consensus could not be safely reached. Inspect individual model outputs below.
@@ -635,6 +640,28 @@ def render_consensus_card(
 <div class="vai-low-consensus-banner">
   ⚠ Warning: Low consensus detected — models have divergent viewpoints. Review individual responses below.
 </div>"""
+
+    # Confidence meter bar (visual confidence meter)
+    meter_html = ""
+    if models_used >= 2 and not high_dissent:
+        if confidence_pct >= 70:
+            bar_color = "#10B981"  # Emerald
+        elif confidence_pct >= 50:
+            bar_color = "#F59E0B"  # Amber
+        else:
+            bar_color = "#EF4444"  # Rose
+            
+        meter_html = f"""
+<div style="margin: 0.5rem 0 1rem 0;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+    <span style="font-size: 11px; font-weight: 500; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">Consensus Strength</span>
+    <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; color: {bar_color};">{confidence_pct}%</span>
+  </div>
+  <div style="width: 100%; height: 6px; background: #1e2535; border-radius: 3px; overflow: hidden; border: 0.5px solid #1e2535;">
+    <div style="width: {confidence_pct}%; height: 100%; background: {bar_color}; border-radius: 3px;"></div>
+  </div>
+</div>
+"""
 
     fu_html = ""
     if follow_ups and not high_dissent:
@@ -650,6 +677,7 @@ def render_consensus_card(
     <span class="vai-consensus-meta">Calculated across {models_used} / {models_total} models</span>
   </div>
   {warning_html}
+  {meter_html}
   <div class="vai-consensus-text">{answer}</div>
   {fu_html}
 </div>
@@ -664,6 +692,7 @@ def render_model_card_html(
     peer_rank_score: float | None = None,
     is_outlier: bool = False,
     status: str = "success",
+    semantic_score: float | None = None,
 ) -> str:
     """Render a single model response card as HTML."""
     if status == "skipped":
@@ -715,6 +744,18 @@ def render_model_card_html(
     if is_outlier:
         outlier_html = '<div class="vai-outlier-warning">⚠ Outlier: High variance from consensus</div>'
 
+    # Build breakdown HTML (Visual Trust Breakdown)
+    breakdown_html = ""
+    if semantic_score is not None and peer_rank_score is not None:
+        breakdown_html = f"""
+  <div style="font-size: 10px; color: #64748b; margin-top: 4px; margin-bottom: 8px; font-family: 'JetBrains Mono', monospace; display: flex; gap: 8px;">
+    <span>Breakdown:</span>
+    <span style="color: #a7f3d0;">Semantic Sim: {semantic_score:.2f} (60%)</span>
+    <span style="color: #64748b;">|</span>
+    <span style="color: #c7d2fe;">Peer Rank: {peer_rank_score:.2f} (40%)</span>
+  </div>
+"""
+
     peer_html = ""
     if peer_rank_score is not None:
         peer_html = f'<span class="vai-peer-rank">peer rank: {peer_rank_score:.2f}</span>'
@@ -731,6 +772,7 @@ def render_model_card_html(
   <div class="vai-trust-bar">
     <div class="vai-trust-bar-fill {fill_class}" style="width:{bar_width}%"></div>
   </div>
+  {breakdown_html}
   <details style="margin-top: 8px; cursor: pointer;">
     <summary style="font-size: 11px; color: #64748b; outline: none; margin-bottom: 6px; font-weight: 500;">
       View Raw Response
@@ -785,3 +827,42 @@ ADMIN_CSS = """
 def inject_admin_styles() -> None:
     """Inject extra admin panel CSS styling overrides."""
     st.markdown(f"<style>{ADMIN_CSS}</style>", unsafe_allow_html=True)
+
+
+def render_reliability_card(
+    models_consulted: int,
+    models_agreeing: int,
+    outliers: int,
+    reliability_level: str,
+) -> str:
+    """Render the system reliability card."""
+    level_colors = {
+        "High": {"text": "#10B981", "bg": "rgba(16, 185, 129, 0.03)", "border": "rgba(16, 185, 129, 0.2)"},
+        "Moderate": {"text": "#F59E0B", "bg": "rgba(245, 158, 11, 0.03)", "border": "rgba(245, 158, 11, 0.2)"},
+        "Low": {"text": "#EF4444", "bg": "rgba(239, 68, 68, 0.03)", "border": "rgba(239, 68, 68, 0.2)"},
+        "Unavailable": {"text": "#64748B", "bg": "rgba(148, 163, 184, 0.03)", "border": "rgba(148, 163, 184, 0.2)"}
+    }
+    cfg = level_colors.get(reliability_level, level_colors["Unavailable"])
+    
+    return f"""
+<div class="vai-consensus-card" style="border-color: {cfg['border']}; background: {cfg['bg']}; margin-top: 0.5rem; position: relative;">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap;">
+    <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600; color: #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em;">⚖️ Truth Engine Reliability</h4>
+    <span style="font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 20px; background: {cfg['border']}; color: {cfg['text']};">{reliability_level} Reliability</span>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center;">
+    <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; border: 0.5px solid #1e2535;">
+      <div style="font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Consulted</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600; color: #e2e8f0;">{models_consulted}</div>
+    </div>
+    <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; border: 0.5px solid #1e2535;">
+      <div style="background: transparent; font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">In Agreement</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600; color: #e2e8f0;">{models_agreeing}</div>
+    </div>
+    <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; border: 0.5px solid #1e2535;">
+      <div style="font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Outliers</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600; color: { '#ef4444' if outliers > 0 else '#64748b' };">{outliers}</div>
+    </div>
+  </div>
+</div>
+"""

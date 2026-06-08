@@ -85,6 +85,7 @@ from styles import (
     render_dispatch_pills,
     render_consensus_card,
     render_model_grid,
+    render_reliability_card,
 )
 
 
@@ -286,8 +287,11 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
         with st.spinner("🌐 Querying live web for real-time facts..."):
             search_results = search_web(raw_query)
             if search_results:
-                log.log_event("INFO", sess_id, "web_search_success", "web_search",
-                              message=f"Retrieved real-time search context for query: {raw_query[:50]}...")
+                log.log_event(
+                    "INFO", sess_id, "web_search_success", "web_search",
+                    query_hash=q_hash,
+                    message="Retrieved real-time search context successfully"
+                )
                 dispatch_prompt = (
                     f"{enhanced_obj.enhanced}\n\n"
                     f"[REAL-TIME GROUNDING CONTEXT (WEB SEARCH)]:\n"
@@ -696,6 +700,30 @@ def _render_results(output: FinalOutput, enhanced: Optional[EnhancedQuery]) -> N
         unsafe_allow_html=True,
     )
 
+    # 3.5. Reliability Card (Confidence Assessment Grid)
+    if models_used > 0:
+        outliers_count = len(output.hallucination_flags)
+        agreeing_count = models_used - outliers_count
+        
+        if models_used < 2:
+            reliability_level = "Unavailable"
+        elif output.consensus_ratio >= 0.75:
+            reliability_level = "High"
+        elif output.consensus_ratio >= 0.50:
+            reliability_level = "Moderate"
+        else:
+            reliability_level = "Low"
+            
+        st.markdown(
+            render_reliability_card(
+                models_consulted=models_used,
+                models_agreeing=agreeing_count,
+                outliers=outliers_count,
+                reliability_level=reliability_level,
+            ),
+            unsafe_allow_html=True,
+        )
+
     # Copy and read aloud buttons row
     if output.answer:
         action_col1, action_col2, _ = st.columns([2, 2, 8])
@@ -741,6 +769,7 @@ def _render_results(output: FinalOutput, enhanced: Optional[EnhancedQuery]) -> N
             "peer_rank_score": res.peer_rank_score if res.status == LLMStatus.SUCCESS else None,
             "is_outlier": res.is_outlier,
             "status": res.status.value,
+            "semantic_score": res.semantic_score if res.status == LLMStatus.SUCCESS else None,
         })
     st.markdown(render_model_grid(grid_results), unsafe_allow_html=True)
 

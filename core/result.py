@@ -28,6 +28,7 @@ class LLMResult:
     peer_rank_score: float = 0.5  # Evaluated during Stage 3
     trust_score: float = 0.0      # Evaluated during Stage 4
     is_outlier: bool = False      # Evaluated during Stage 4
+    semantic_score: float = 0.5   # Evaluated during Stage 4
 
 
 @dataclass

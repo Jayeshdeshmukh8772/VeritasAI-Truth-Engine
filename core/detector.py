@@ -219,6 +219,7 @@ class HallucinationDetector:
             # Compute composite trust index
             composite_trust = round((sem_score * sem_w) + (peer_score * peer_w), 3)
             res.trust_score = composite_trust
+            res.semantic_score = round(sem_score, 3)
             trust_scores[res.model] = composite_trust
 
             is_outlier = outlier_flags[idx] or (composite_trust < 0.45)
