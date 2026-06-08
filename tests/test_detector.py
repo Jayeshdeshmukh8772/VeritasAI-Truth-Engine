@@ -113,3 +113,37 @@ def test_low_consensus_flag_set_when_ratio_below_threshold(detector: Hallucinati
     # If consensus_ratio < 0.5, low_consensus must be True
     if detection.consensus_ratio < 0.5:
         assert detection.low_consensus is True
+
+
+def test_math_equivalence_sympy(detector: HallucinationDetector) -> None:
+    """Equivalent math responses should have similarity boosted and group together."""
+    res_a = make_result("ModelA", "The solution is x = sqrt(25) which is simple.")
+    res_b = make_result("ModelB", "For this problem, x = 5 is the value.")
+    
+    detection = detector.analyze([res_a, res_b], query_type="mathematical")
+    
+    assert not detection.low_consensus
+    assert len(detection.trusted) == 2
+
+
+def test_sparse_fallback_3_models(detector: HallucinationDetector) -> None:
+    """Under N=3, dynamic metric fallback should use correct weights and thresholds."""
+    res_a = make_result("ModelA", PARIS_A, peer_score=0.8)
+    res_b = make_result("ModelB", PARIS_B, peer_score=0.8)
+    res_c = make_result("ModelC", BERLIN_OUTLIER, peer_score=0.1)
+    
+    detection = detector.analyze([res_a, res_b, res_c])
+    
+    outlier_models = {r.model for r in detection.outliers}
+    assert "ModelC" in outlier_models
+    assert "ModelA" not in outlier_models
+
+
+def test_sparse_fallback_2_models(detector: HallucinationDetector) -> None:
+    """Under N=2, dynamic metric fallback should flag dissent if similarity < 0.55."""
+    res_a = make_result("ModelA", "The capital city of France is Paris.", peer_score=0.8)
+    res_b = make_result("ModelB", "Python is a programming language.", peer_score=0.2)
+    
+    detection = detector.analyze([res_a, res_b])
+    
+    assert len(detection.outliers) == 2

@@ -8,12 +8,12 @@ import re
 import random
 from typing import List, Dict
 from core.adapter import LLMAdapter
-from core.result import LLMResult, LLMStatus, PeerReviewResult
+from core.result import LLMResult, LLMStatus
+
 
 class PeerReviewEngine:
     def __init__(self, adapter_map: Dict[str, LLMAdapter]):
         self.adapter_map = adapter_map
-        self.ranking_regex = re.compile(r'(?:FINAL RANKING:.*?)(?:\bResponse\s+([A-Z]))', re.DOTALL | re.IGNORECASE)
 
     async def run_review(self, question: str, successful_results: List[LLMResult]) -> List[LLMResult]:
         """Runs parallel zero-knowledge critique iterations across all operational models."""
@@ -35,17 +35,27 @@ class PeerReviewEngine:
         for position, idx in enumerate(shuffled_indices):
             lbl = labels[position]
             label_to_index[lbl] = idx
-            rendered_payload += f"\nResponse {lbl}:\n\"\"\"{successful_results[idx].response}\"\"\"\n"
+            rendered_payload += f"\nModel {lbl}:\n\"\"\"{successful_results[idx].response}\"\"\"\n"
 
         review_prompt = (
-            f"You are evaluating AI responses. The question was:\n\"{question}\"\n"
-            f"Below are {n} responses labeled A through {labels[-1]}:\n{rendered_payload}\n"
-            "Evaluate each response for accuracy, completeness, and clarity.\n"
-            "Respond ONLY with the following format nothing else:\n"
-            "FINAL RANKING:\n"
-            "1. Response [letter]\n"
-            "2. Response [letter]\n"
-            "(Best first, worst last. Every letter must appear exactly once.)"
+            f"Role: Objective Forensic Auditor.\n"
+            f"Task: Evaluate the following candidate answers for the query: \"{question}\"\n\n"
+            f"Evaluation Rubric:\n"
+            f"1. Accuracy: Are the facts verifiable? \n"
+            f"2. Completeness: Does it address all parts of the query?\n"
+            f"3. Hallucination Check: Does it invent facts or cite non-existent data?\n\n"
+            f"Candidates:\n{rendered_payload}\n"
+            f"Instructions: \n"
+            f"- Perform a brief internal critique for each model.\n"
+            f"- Rank models from most trustworthy to least.\n"
+            f"- Use model identifiers (e.g., Model A, Model B).\n\n"
+            f"Output Schema:\n"
+            f"<analysis>\n"
+            f"[Brief 1-sentence critique per model]\n"
+            f"</analysis>\n\n"
+            f"<ranking>\n"
+            f"[Model Name, Model Name, Model Name]\n"
+            f"</ranking>"
         )
 
         tasks = []
@@ -66,11 +76,39 @@ class PeerReviewEngine:
             if review_res.status != LLMStatus.SUCCESS or not review_res.response:
                 continue
 
-            extracted_letters = re.findall(r'Response\s+([A-Z])', review_res.response, re.IGNORECASE)
+            # 1. Try to extract content inside <ranking>...</ranking>
+            ranking_content = ""
+            ranking_match = re.search(r'<ranking>(.*?)</ranking>', review_res.response, re.DOTALL | re.IGNORECASE)
+            if ranking_match:
+                ranking_content = ranking_match.group(1).strip()
+            else:
+                # Fallback: find any bracketed list like [Model A, Model B]
+                bracket_match = re.search(r'\[(.*?)\]', review_res.response, re.DOTALL)
+                if bracket_match:
+                    ranking_content = bracket_match.group(1).strip()
+
+            # 2. Extract model letters (e.g. Model A -> A) from ranking content
+            if ranking_content:
+                extracted_letters = re.findall(r'(?:Model\s+)?([A-Z])', ranking_content, re.IGNORECASE)
+                extracted_letters = [lbl.upper() for lbl in extracted_letters]
+            else:
+                # Fallback: search the entire response for Model A or Response A
+                extracted_letters = re.findall(r'(?:Model|Response)\s+([A-Z])', review_res.response, re.IGNORECASE)
+                extracted_letters = [lbl.upper() for lbl in extracted_letters]
+
+            # Filter out labels that are not in our dynamic labels
+            valid_extracted = [lbl for lbl in extracted_letters if lbl in labels]
             
-            # Filter structural malformations or incomplete ordinal extractions
-            if len(set(extracted_letters)) == n and all(lbl in label_to_index for lbl in extracted_letters):
-                for placement, lbl in enumerate(extracted_letters):
+            # Deduplicate while preserving order
+            seen = set()
+            unique_extracted = []
+            for lbl in valid_extracted:
+                if lbl not in seen:
+                    seen.add(lbl)
+                    unique_extracted.append(lbl)
+
+            if len(unique_extracted) == n:
+                for placement, lbl in enumerate(unique_extracted):
                     target_model_index = label_to_index[lbl]
                     rank_accumulators[target_model_index].append(placement)
 

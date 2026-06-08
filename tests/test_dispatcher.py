@@ -113,3 +113,42 @@ async def test_mixed_success_and_failure(mock_config, rate_tracker) -> None:
     statuses = {r.model: r.status for r in results}
     assert statuses["groq"] == LLMStatus.SUCCESS
     assert statuses["gemini"] == LLMStatus.FAILED
+
+
+@pytest.mark.asyncio
+async def test_speculative_execution_straggler_termination(mock_config, rate_tracker) -> None:
+    """Speculative execution should cancel straggler adapters after quorum is met."""
+    fast_adapters = [make_mock_adapter(f"model_{i}") for i in range(4)]
+    
+    # Straggler adapter takes 10 seconds (exceeding the 1.0 second countdown)
+    straggler = MagicMock()
+    straggler.name = "straggler"
+    
+    async def slow_call(*args, **kwargs):
+        await asyncio.sleep(10.0)
+        return LLMResult("straggler", LLMStatus.SUCCESS, "Straggler response")
+    straggler.call = AsyncMock(side_effect=slow_call)
+    
+    adapters = fast_adapters + [straggler]
+    
+    config = {
+        "models": [{"name": f"model_{i}", "enabled": True, "daily_limit": 100} for i in range(4)] + [
+            {"name": "straggler", "enabled": True, "daily_limit": 100}
+        ]
+    }
+    
+    dispatcher = AsyncDispatcher(adapters, rate_tracker, config)
+    
+    import time
+    start = time.time()
+    
+    results = await dispatcher.dispatch_all("Test query")
+    
+    elapsed = time.time() - start
+    
+    assert elapsed < 5.0
+    
+    statuses = {r.model: r.status for r in results}
+    for i in range(4):
+        assert statuses[f"model_{i}"] == LLMStatus.SUCCESS
+    assert statuses["straggler"] == LLMStatus.SKIPPED

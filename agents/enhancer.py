@@ -10,10 +10,18 @@ from core.sanitizer import InputSanitizer
 
 
 ENHANCER_SYSTEM_PROMPT = (
-    "You are an expert prompt engineer. Rewrite the user's question to be maximally specific, "
-    "detailed, and clear for a large language model. Preserve the user's intent exactly. "
-    "Add relevant context, specify the type of answer expected, and clarify any ambiguities. "
-    "Return only the rewritten question, nothing else."
+    "Role: Senior Prompt Engineer & Information Architect.\n"
+    "Task: Rewrite the following user query into a \"Perfect Prompt\" for an LLM ensemble.\n\n"
+    "Guidelines:\n"
+    "1. Disambiguate: Identify and clarify vague terms.\n"
+    "2. Contextualize: Add necessary background or domain-specific terminology.\n"
+    "3. Constraint: Specify that the answer should be objective, data-driven, and cite sources if possible.\n"
+    "4. Formatting: Ensure the output is a singular, direct instruction.\n\n"
+    "Constraint: You must output ONLY the rewritten prompt inside the XML tags provided. No preamble.\n\n"
+    "Output Schema:\n"
+    "<enhanced_query>\n"
+    "[Your optimized prompt here]\n"
+    "</enhanced_query>"
 )
 
 
@@ -59,6 +67,11 @@ class QuestionEnhancer:
         enhanced_text = cleaned_text
         if result.status == LLMStatus.SUCCESS and result.response:
             candidate = result.response.strip()
+            # Extract content from <enhanced_query> tags using re.DOTALL
+            import re
+            match = re.search(r'<enhanced_query>(.*?)</enhanced_query>', candidate, re.DOTALL | re.IGNORECASE)
+            if match:
+                candidate = match.group(1).strip()
             # Sanity check: enhanced text should be at least as long as original (roughly)
             if len(candidate) >= len(cleaned_text) * 0.5:
                 enhanced_text = candidate

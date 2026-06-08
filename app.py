@@ -17,6 +17,14 @@ import uuid
 import yaml
 import streamlit as st
 from dotenv import load_dotenv
+from threading import Thread
+
+# Thread-safe Event Loop Initialization for Streamlit sessions
+if "async_loop" not in st.session_state:
+    loop = asyncio.new_event_loop()
+    t = Thread(target=loop.run_forever, daemon=True)
+    t.start()
+    st.session_state.async_loop = loop
 
 load_dotenv()
 from datetime import datetime
@@ -198,7 +206,7 @@ def initialize_session_state() -> None:
 
 def run_pipeline(raw_query: str, image_b64: Optional[str] = None) -> FinalOutput:
     """
-    Execute the full 5-stage pipeline synchronously (wraps async pipeline).
+    Execute the full 5-stage pipeline by scheduling it onto the background thread pool loop.
 
     Args:
         raw_query: Raw user input string
@@ -207,17 +215,9 @@ def run_pipeline(raw_query: str, image_b64: Optional[str] = None) -> FinalOutput
     Returns:
         FinalOutput with all results, scores, and synthesized answer
     """
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            raise RuntimeError("Loop closed")
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    result = loop.run_until_complete(_pipeline_async(raw_query, image_b64))
-    # _pipeline_async returns a FinalOutput directly (enhanced_query stored in session_state)
-    return result
+    coro = _pipeline_async(raw_query, image_b64)
+    future = asyncio.run_coroutine_threadsafe(coro, st.session_state.async_loop)
+    return future.result()
 
 
 async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
@@ -294,11 +294,13 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
     # Initialize model statuses for dynamic display
     model_statuses = {}
     model_cfg_map = {cfg['name']: cfg for cfg in config.get('models', [])}
-    for adapter in active_adapters:
+    for adapter in state.adapters:
         slug = state.dispatcher._get_slug(adapter.name)
         cfg = model_cfg_map.get(slug, {"enabled": True, "daily_limit": 100})
         
-        if not cfg.get("enabled", True):
+        if fast_mode and adapter not in active_adapters:
+            model_statuses[adapter.name] = {"status": "skipped", "latency_ms": None}
+        elif not cfg.get("enabled", True):
             model_statuses[adapter.name] = {"status": "skipped", "latency_ms": None}
         elif not state.rate_tracker.check_quota(slug, cfg.get("daily_limit", 100)):
             model_statuses[adapter.name] = {"status": "skipped", "latency_ms": None}
@@ -324,33 +326,24 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
         st.info(loading_msg)
         st.markdown(render_dispatch_pills(model_statuses), unsafe_allow_html=True)
 
-    # Wrap adapter call in an async task that updates the status row upon completion
-    async def run_and_update_task(adapter, prompt, image_b64, slug):
-        if model_statuses[adapter.name]["status"] == "skipped":
-            return await state.dispatcher._build_skipped(adapter.name, "disabled")
-            
-        result = await state.dispatcher._execute_and_track(adapter, prompt, image_b64, slug)
-        
+    # Define the callback function to update model statuses in the Streamlit UI
+    def update_status_callback(name, result):
         status_str = result.status.value  # "success" | "failed" | "skipped"
-        model_statuses[adapter.name] = {
+        model_statuses[name] = {
             "status": status_str,
             "latency_ms": result.latency_ms if status_str == "success" else None
         }
-        
-        # Rerender dynamic pills
         with status_placeholder.container():
             st.info(loading_msg)
             st.markdown(render_dispatch_pills(model_statuses), unsafe_allow_html=True)
-            
-        return result
 
-    # Execute all adapter calls concurrently
-    tasks = []
-    for adapter in active_adapters:
-        slug = state.dispatcher._get_slug(adapter.name)
-        tasks.append(run_and_update_task(adapter, dispatch_prompt, image_b64, slug))
-
-    raw_results = await asyncio.gather(*tasks)
+    # Execute all adapter calls concurrently via the speculative execution dispatcher
+    raw_results = await state.dispatcher.dispatch_all(
+        dispatch_prompt,
+        image_b64,
+        callback=update_status_callback,
+        fast_mode=fast_mode
+    )
     status_placeholder.empty()
 
     successful = [r for r in raw_results if r.status == LLMStatus.SUCCESS]
@@ -401,6 +394,7 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
         reviewed_results,
         semantic_weight=sem_weight,
         peer_weight=peer_weight,
+        query_type=enhanced_obj.query_type,
     )
 
     log.log_event(
@@ -704,14 +698,10 @@ def _render_results(output: FinalOutput, enhanced: Optional[EnhancedQuery]) -> N
             import base64
             b64_answer = base64.b64encode(output.answer.encode('utf-8')).decode('utf-8')
             button_html = (
-                f'<button onclick="navigator.clipboard.writeText(decodeURIComponent(escape(atob(\'{b64_answer}\')))).then(() => {{ '
-                f'this.textContent=\'✅ Copied!\'; setTimeout(() => this.textContent=\'📋 Copy Answer\', 1500); '
-                f'}})" style="background: transparent; border: 0.5px solid #1e2535; border-radius: 7px; '
-                f'color: #64748b; font-family: \'Outfit\', sans-serif; font-size: 12px; padding: 7px 14px; '
-                f'cursor: pointer; transition: all 0.15s ease; width: 100%; height: 38px;" '
+                f'<button onclick="(function(btn, b64){{ var text = decodeURIComponent(escape(atob(b64))); function setCopied(){{ btn.textContent=\'✅ Copied!\'; setTimeout(function(){{ btn.textContent=\'📋 Copy Answer\'; }}, 1500); }} if (navigator.clipboard && navigator.clipboard.writeText) {{ navigator.clipboard.writeText(text).then(setCopied).catch(fallback); }} else {{ fallback(); }} function fallback(){{ var el = document.createElement(\'textarea\'); el.value = text; el.setAttribute(\'readonly\', \'\'); el.style.position = \'absolute\'; el.style.left = \'-9999px\'; document.body.appendChild(el); el.select(); try {{ document.execCommand(\'copy\'); setCopied(); }} catch(e) {{ btn.textContent=\'❌ Failed\'; setTimeout(function(){{ btn.textContent=\'📋 Copy Answer\'; }}, 1500); }} document.body.removeChild(el); }} }})(this, \'{b64_answer}\')" '
+                f'style="background: transparent; border: 0.5px solid #1e2535; border-radius: 7px; color: #64748b; font-family: \'Outfit\', sans-serif; font-size: 12px; padding: 7px 14px; cursor: pointer; transition: all 0.15s ease; width: 100%; height: 38px;" '
                 f'onmouseover="this.style.borderColor=\'#2d3561\'; this.style.color=\'#a5b4fc\'; this.style.background=\'#13182a\';" '
-                f'onmouseout="this.style.borderColor=\'#1e2535\'; this.style.color=\'#64748b\'; this.style.background=\'transparent\';">'
-                f'📋 Copy Answer</button>'
+                f'onmouseout="this.style.borderColor=\'#1e2535\'; this.style.color=\'#64748b\'; this.style.background=\'transparent\';">📋 Copy Answer</button>'
             )
             st.markdown(button_html, unsafe_allow_html=True)
 

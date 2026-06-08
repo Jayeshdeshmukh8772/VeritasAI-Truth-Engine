@@ -28,6 +28,40 @@ inject_admin_styles()
 DB_PATH = "logs/admin.db"
 
 
+def get_db_connection() -> sqlite3.Connection:
+    """Get security-configured database connection."""
+    if "logger" in st.session_state:
+        try:
+            return st.session_state.logger.get_connection()
+        except Exception:
+            pass
+    
+    db_key = os.environ.get("DB_ENCRYPTION_KEY")
+    sqlcipher_lib = None
+    try:
+        import sqlcipher3
+        sqlcipher_lib = sqlcipher3
+    except ImportError:
+        try:
+            import pysqlcipher3.dbapi2 as pysqlcipher
+            sqlcipher_lib = pysqlcipher
+        except ImportError:
+            pass
+
+    if sqlcipher_lib and db_key:
+        conn = sqlcipher_lib.connect(DB_PATH, check_same_thread=False, timeout=30.0)
+        conn.execute(f"PRAGMA key='{db_key}'")
+    else:
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30.0)
+        
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+    except Exception:
+        pass
+    return conn
+
+
 def verify_admin_credentials() -> bool:
     """
     Verify admin password against bcrypt hash stored in environment or st.secrets.
@@ -50,31 +84,34 @@ def verify_admin_credentials() -> bool:
 
     _, col, _ = st.columns([1, 2, 1])
     with col:
-        password_input = st.text_input(
-            "Admin Password", type="password", key="admin_pw_input"
-        )
-        if st.button("Unlock Dashboard", use_container_width=True, type="primary"):
-            # Try st.secrets first (Streamlit Cloud), then env var, then default hash
-            stored_hash: bytes
-            try:
-                stored_hash = st.secrets["ADMIN_PASSWORD_HASH"].encode("utf-8")
-            except Exception:
-                env_hash = os.getenv("ADMIN_PASSWORD_HASH", "")
-                if env_hash:
-                    stored_hash = env_hash.encode("utf-8")
-                else:
-                    # Default fallback for local dev: password is "admin123"
-                    stored_hash = b"$2b$12$P8StVgtXwPLSWuYx9j7pGu96QMh5jaWwh4rGzuQGleappH/38QGEi"
+        with st.form("admin_login_form", clear_on_submit=False):
+            password_input = st.text_input(
+                "Admin Password", type="password", key="admin_pw_input"
+            )
+            submit = st.form_submit_button("Unlock Dashboard", use_container_width=True, type="primary")
+            
+            if submit:
+                # Try st.secrets first (Streamlit Cloud), then env var, then default hash
+                stored_hash: bytes
+                try:
+                    stored_hash = st.secrets["ADMIN_PASSWORD_HASH"].encode("utf-8")
+                except Exception:
+                    env_hash = os.getenv("ADMIN_PASSWORD_HASH", "")
+                    if env_hash:
+                        stored_hash = env_hash.encode("utf-8")
+                    else:
+                        # Default fallback for local dev: password is "admin123"
+                        stored_hash = b"$2b$12$P8StVgtXwPLSWuYx9j7pGu96QMh5jaWwh4rGzuQGleappH/38QGEi"
 
-            try:
-                if bcrypt.checkpw(password_input.encode("utf-8"), stored_hash):
-                    st.session_state.admin_authenticated = True
-                    st.success("✅ Access granted.")
-                    st.rerun()
-                else:
-                    st.error("❌ Invalid password.")
-            except Exception as e:
-                st.error(f"Authentication error: {e}")
+                try:
+                    if bcrypt.checkpw(password_input.encode("utf-8"), stored_hash):
+                        st.session_state.admin_authenticated = True
+                        st.success("✅ Access granted.")
+                        st.rerun()
+                    else:
+                        st.error("❌ Invalid password.")
+                except Exception as e:
+                    st.error(f"Authentication error: {e}")
 
     return False
 
@@ -89,7 +126,7 @@ def load_logs() -> pd.DataFrame:
     if not os.path.exists(DB_PATH):
         return pd.DataFrame()
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         df = pd.read_sql_query(
             """
             SELECT ts, level, event, model, latency_ms, trust_score,
@@ -112,7 +149,7 @@ def load_queries() -> pd.DataFrame:
     if not os.path.exists(DB_PATH):
         return pd.DataFrame()
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         df = pd.read_sql_query(
             """
             SELECT ts, query_type, consensus_ratio, total_latency_ms,
@@ -134,7 +171,7 @@ def load_model_trust_history() -> pd.DataFrame:
     if not os.path.exists(DB_PATH):
         return pd.DataFrame()
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         df = pd.read_sql_query(
             """
             SELECT ts, model, trust_score
@@ -156,7 +193,7 @@ def load_feedback() -> pd.DataFrame:
     if not os.path.exists(DB_PATH):
         return pd.DataFrame()
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = get_db_connection()
         df = pd.read_sql_query(
             "SELECT ts, session_id, vote, comment FROM feedback ORDER BY ts DESC LIMIT 100",
             conn,

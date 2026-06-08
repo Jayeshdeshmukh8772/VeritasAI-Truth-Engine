@@ -62,10 +62,41 @@ class VeritasLogger:
         # --- SQLite database initialization ---
         self._initialize_sqlite()
 
+    def _get_connection(self):
+        db_key = os.environ.get("DB_ENCRYPTION_KEY")
+        sqlcipher_lib = None
+        try:
+            import sqlcipher3
+            sqlcipher_lib = sqlcipher3
+        except ImportError:
+            try:
+                import pysqlcipher3.dbapi2 as pysqlcipher
+                sqlcipher_lib = pysqlcipher
+            except ImportError:
+                pass
+
+        if sqlcipher_lib and db_key:
+            conn = sqlcipher_lib.connect(self.db_path, check_same_thread=False, timeout=30.0)
+            conn.execute(f"PRAGMA key='{db_key}'")
+        else:
+            conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0)
+            
+        try:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
+        except Exception:
+            pass
+            
+        return conn
+
+    def get_connection(self):
+        """Public connection accessor for external modules (e.g. admin page)."""
+        return self._get_connection()
+
     def _initialize_sqlite(self) -> None:
         """Create all required tables in the SQLite database if they don't exist."""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
 
             # Table 1: Generic event log
@@ -203,7 +234,7 @@ class VeritasLogger:
 
         # Write to SQLite
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -259,7 +290,7 @@ class VeritasLogger:
         """
         ts_str = datetime.utcnow().isoformat()
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -312,7 +343,7 @@ class VeritasLogger:
             error_type: Error category if applicable
         """
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -352,7 +383,7 @@ class VeritasLogger:
         """
         ts_str = datetime.utcnow().isoformat()
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO feedback (ts, session_id, query_hash, vote, comment) VALUES (?, ?, ?, ?, ?)",
