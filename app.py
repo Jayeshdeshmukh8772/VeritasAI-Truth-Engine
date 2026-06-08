@@ -66,14 +66,18 @@ from agents.combiner import ResultCombiner
 # --- UI Components ---
 from ui.sidebar import SidebarComponent
 from ui.search_bar import SearchBarComponent
-from ui.model_status import ModelStatusComponent
-from ui.consensus_card import ConsensusCardComponent
-from ui.warning_banner import WarningBannerComponent
-from ui.model_card import ModelCardComponent
-from ui.enhanced_query import EnhancedQueryComponent
 from ui.trust_chart import TrustChartComponent
 from ui.feedback import FeedbackComponent
 from ui.summary_footer import SummaryFooterComponent
+
+# --- Premium Dark UI styles ---
+from styles import (
+    inject_styles,
+    render_diff,
+    render_dispatch_pills,
+    render_consensus_card,
+    render_model_grid,
+)
 
 
 # ─── Default configuration fallback ─────────────────────────────────────────
@@ -357,7 +361,38 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
     # ── STAGE 5: Synthesis ─────────────────────────────────────────────────────
     flagged_models = [r.model for r in detection.outliers]
 
-    if detection.low_consensus:
+    if detection.high_dissent:
+        latency = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+        # Format a side-by-side comparison of the divergent model answers into answer_text
+        successful_reviewed = [r for r in reviewed_results if r.status == LLMStatus.SUCCESS]
+        if len(successful_reviewed) >= 2:
+            model_a, model_b = successful_reviewed[0], successful_reviewed[1]
+            answer_text = (
+                f"### ⚠️ High Dissent / Contradictory Scenario\n"
+                f"The active models returned highly contradictory viewpoints (semantic similarity < 0.50). "
+                f"A consensus could not be safely reached.\n\n"
+                f"#### Viewpoint A: {model_a.model}\n"
+                f"{model_a.response}\n\n"
+                f"--- \n\n"
+                f"#### Viewpoint B: {model_b.model}\n"
+                f"{model_b.response}"
+            )
+        else:
+            answer_text = "⚠️ High dissent detected, but insufficient model responses are available to display details."
+
+        output = FinalOutput(
+            answer=answer_text,
+            consensus_ratio=detection.consensus_ratio,
+            trust_scores=detection.trust_scores,
+            peer_rankings={r.model: r.peer_rank_score for r in reviewed_results},
+            hallucination_flags=flagged_models,
+            follow_up_questions=[],
+            low_consensus=True,
+            all_results=raw_results,
+            total_latency_ms=latency,
+            high_dissent=True,
+        )
+    elif detection.low_consensus:
         # Low consensus: skip synthesis, show warning
         latency = int((datetime.utcnow() - start_time).total_seconds() * 1000)
         output = FinalOutput(
@@ -370,6 +405,7 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
             low_consensus=True,
             all_results=raw_results,
             total_latency_ms=latency,
+            high_dissent=False,
         )
     else:
         final_answer, follow_ups = await state.combiner.synthesize_with_followups(
@@ -391,6 +427,7 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
             low_consensus=False,
             all_results=raw_results,
             total_latency_ms=latency,
+            high_dissent=False,
         )
 
     # Log complete query record
@@ -461,6 +498,9 @@ def main() -> None:
     """
     # Initialize all session state on first run
     initialize_session_state()
+
+    # Inject the premium dark styles
+    inject_styles()
 
     # Render sidebar (always visible)
     SidebarComponent.render_controls()
@@ -562,41 +602,106 @@ def _handle_query(raw_query: str, image_b64: Optional[str]) -> None:
 
 def _render_results(output: FinalOutput, enhanced: Optional[EnhancedQuery]) -> None:
     """
-    Render the complete results page (STATE C).
-
-    Args:
-        output: The FinalOutput from the completed pipeline
-        enhanced: The EnhancedQuery object for diff display
+    Render the complete results page (STATE C) using the premium dark UI style elements.
     """
-    # Model status tracker
-    ModelStatusComponent.render_tracker_row(output.all_results)
+    # 1. Operational Dispatch Tracker (Status Pills)
+    st.markdown("### Operational Dispatch Tracker")
+    model_statuses = {}
+    for res in output.all_results:
+        status_str = res.status.value  # "success" | "failed" | "skipped"
+        model_statuses[res.model] = {
+            "status": status_str,
+            "latency_ms": res.latency_ms if status_str == "success" else None
+        }
+    st.markdown(render_dispatch_pills(model_statuses), unsafe_allow_html=True)
 
-    # Enhanced query diff
+    # 2. Enhanced query diff (Query Optimization Card)
     if enhanced and enhanced.original != enhanced.enhanced:
-        EnhancedQueryComponent.render(enhanced.original, enhanced.enhanced)
+        st.markdown("### Query Optimization")
+        st.markdown(render_diff(enhanced.original, enhanced.enhanced, enhanced.query_type), unsafe_allow_html=True)
 
-    # Consensus answer (hero card)
-    ConsensusCardComponent.render(
-        answer=output.answer,
-        consensus_ratio=output.consensus_ratio,
-        follow_up_questions=output.follow_up_questions,
+    # 3. Consensus Answer (Hero Card)
+    st.markdown("### Consensus Answer")
+    models_used = sum(1 for r in output.all_results if r.status == LLMStatus.SUCCESS)
+    models_total = len(output.all_results)
+    
+    st.markdown(
+        render_consensus_card(
+            answer=output.answer if output.answer else "No synthesis output generated due to low model consensus.",
+            confidence_pct=int(output.consensus_ratio * 100),
+            models_used=models_used,
+            models_total=models_total,
+            follow_ups=None,  # Handled below as interactive Streamlit buttons
+            low_consensus=output.low_consensus,
+            high_dissent=output.high_dissent,
+        ),
+        unsafe_allow_html=True,
     )
 
-    # Warning banner (if low consensus or outliers)
-    WarningBannerComponent.check_and_render(
-        output.low_consensus, output.hallucination_flags
-    )
+    # Copy and read aloud buttons row
+    if output.answer:
+        action_col1, action_col2, _ = st.columns([2, 2, 8])
+        with action_col1:
+            from ui.tts import TTSComponent
+            TTSComponent.render_button(output.answer, "🔊 Read Aloud")
+        with action_col2:
+            st.markdown(
+                f"""
+                <button onclick="navigator.clipboard.writeText(`{output.answer[:1000].replace('`', '').replace('\\', '\\\\')}`).then(() => {{
+                    this.textContent='✅ Copied!'; setTimeout(() => this.textContent='📋 Copy Answer', 1500);
+                }})"
+                style="
+                    background: transparent;
+                    border: 0.5px solid #1e2535;
+                    border-radius: 7px;
+                    color: #64748b;
+                    font-family: 'Outfit', sans-serif;
+                    font-size: 12px;
+                    padding: 7px 14px;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    width: 100%;
+                    height: 38px;
+                "
+                onmouseover="this.style.borderColor='#2d3561'; this.style.color='#a5b4fc'; this.style.background='#13182a';"
+                onmouseout="this.style.borderColor='#1e2535'; this.style.color='#64748b'; this.style.background='transparent';"
+                >📋 Copy Answer</button>
+                """,
+                unsafe_allow_html=True,
+            )
 
-    # Trust score chart
+    # 4. Interactive Follow-up Questions (Native Streamlit Buttons with theme overrides)
+    if output.follow_up_questions and not output.high_dissent:
+        st.write("")
+        st.markdown("**💡 Follow-up Questions:**")
+        cols = st.columns(len(output.follow_up_questions[:3]))
+        for i, q in enumerate(output.follow_up_questions[:3]):
+            with cols[i]:
+                if st.button(f"→ {q}", key=f"followup_{i}", use_container_width=True):
+                    st.session_state["followup_query"] = q
+                    st.rerun()
+
+    # 5. Trust Score Chart (Native Plotly Chart inheriting dark dashboard style overrides)
+    st.write("")
+    st.markdown("### Council Confidence Grid")
     TrustChartComponent.render(output)
 
-    # Per-model cards
-    ModelCardComponent.render_grid(
-        output.all_results,
-        show_debate=st.session_state.get("debate_mode", False),
-    )
+    # 6. Responsive Individual Model Cards
+    st.markdown("### Individual Model Responses")
+    grid_results = []
+    for res in output.all_results:
+        grid_results.append({
+            "name": res.model,
+            "response": res.response if res.response else "",
+            "trust_score": res.trust_score,
+            "latency_ms": res.latency_ms,
+            "peer_rank_score": res.peer_rank_score if res.status == LLMStatus.SUCCESS else None,
+            "is_outlier": res.is_outlier,
+            "status": res.status.value,
+        })
+    st.markdown(render_model_grid(grid_results), unsafe_allow_html=True)
 
-    # Feedback
+    # 7. Feedback Component
     q_hash = st.session_state.cache.compute_signature(
         enhanced.enhanced if enhanced else "query"
     )
@@ -606,7 +711,7 @@ def _render_results(output: FinalOutput, enhanced: Optional[EnhancedQuery]) -> N
         logger=st.session_state.logger,
     )
 
-    # Summary footer
+    # 8. Summary Footer
     SummaryFooterComponent.render(output)
 
 

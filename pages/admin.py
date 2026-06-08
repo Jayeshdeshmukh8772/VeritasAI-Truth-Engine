@@ -20,6 +20,10 @@ st.set_page_config(
     layout="wide",
 )
 
+from styles import inject_styles, inject_admin_styles
+inject_styles()
+inject_admin_styles()
+
 
 DB_PATH = "logs/admin.db"
 

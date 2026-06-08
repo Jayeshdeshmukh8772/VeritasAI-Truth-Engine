@@ -55,6 +55,7 @@ class DetectionResult:
     trust_scores: dict
     consensus_ratio: float
     low_consensus: bool        # True if consensus_ratio < threshold
+    high_dissent: bool = False  # True if 2 models disagree heavily
 
 
 @dataclass
@@ -69,3 +70,4 @@ class FinalOutput:
     low_consensus: bool
     all_results: list
     total_latency_ms: int
+    high_dissent: bool = False  # True if 2 models disagree heavily
