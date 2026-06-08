@@ -645,10 +645,12 @@ def _render_results(output: FinalOutput, enhanced: Optional[EnhancedQuery]) -> N
             from ui.tts import TTSComponent
             TTSComponent.render_button(output.answer, "🔊 Read Aloud")
         with action_col2:
-            escaped_answer = output.answer[:1000].replace('`', '').replace('\\', '\\\\')
+            import html
+            import json
+            js_safe_answer = html.escape(json.dumps(output.answer))
             st.markdown(
                 f"""
-                <button onclick="navigator.clipboard.writeText(`{escaped_answer}`).then(() => {{
+                <button onclick="navigator.clipboard.writeText({js_safe_answer}).then(() => {{
                     this.textContent='✅ Copied!'; setTimeout(() => this.textContent='📋 Copy Answer', 1500);
                 }})"
                 style="
