@@ -50,6 +50,7 @@ from core.dispatcher import AsyncDispatcher
 from core.peer_review import PeerReviewEngine
 from core.detector import HallucinationDetector
 from core.cache import ResponseCache
+from core.web_search import search_web
 
 # --- Agents ---
 from agents.groq_adapter import GroqAdapter
@@ -266,15 +267,31 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
     # Store the enhanced query for later display
     st.session_state["current_enhanced"] = enhanced_obj
 
-    # ── STAGE 2: Parallel LLM Dispatch ────────────────────────────────────────
+    # ── STAGE 2: Parallel LLM Dispatch (with Live Web Search / RAG) ───────────
+    dispatch_prompt = enhanced_obj.enhanced
+    
+    if st.session_state.get("feat_search", True):
+        with st.spinner("🌐 Querying live web for real-time facts..."):
+            search_results = search_web(raw_query)
+            if search_results:
+                log.log_event("INFO", sess_id, "web_search_success", "web_search",
+                              message=f"Retrieved real-time search context for query: {raw_query[:50]}...")
+                dispatch_prompt = (
+                    f"{enhanced_obj.enhanced}\n\n"
+                    f"[REAL-TIME GROUNDING CONTEXT (WEB SEARCH)]:\n"
+                    f"{search_results}\n\n"
+                    f"Instructions: Use the real-time grounding context above to provide an accurate, up-to-date response. "
+                    f"Prioritize the search context facts over your historical training knowledge cutoff."
+                )
+
     fast_mode = st.session_state.get("fast_mode", False)
     if fast_mode:
         # Fast mode: only use Groq, Gemini, Cerebras
         fast_adapters = state.adapters[:3]
         fast_dispatcher = AsyncDispatcher(fast_adapters, state.rate_tracker, config)
-        raw_results = await fast_dispatcher.dispatch_all(enhanced_obj.enhanced, image_b64)
+        raw_results = await fast_dispatcher.dispatch_all(dispatch_prompt, image_b64)
     else:
-        raw_results = await state.dispatcher.dispatch_all(enhanced_obj.enhanced, image_b64)
+        raw_results = await state.dispatcher.dispatch_all(dispatch_prompt, image_b64)
 
     successful = [r for r in raw_results if r.status == LLMStatus.SUCCESS]
 

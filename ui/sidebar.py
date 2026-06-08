@@ -38,6 +38,8 @@ class SidebarComponent:
 
             # --- Feature Toggles ---
             st.markdown("#### 🔧 Pipeline Features")
+            st.toggle("🌐 Live Web Search", value=True, key="feat_search",
+                      help="Query the live web for real-time grounding context (RAG)")
             st.toggle("✨ Query Enhancement", value=True, key="feat_enhancer",
                       help="Rewrite query for maximum clarity before dispatching")
             st.toggle("💾 Response Cache", value=True, key="feat_cache",
