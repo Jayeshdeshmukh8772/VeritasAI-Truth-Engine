@@ -648,30 +648,17 @@ def _render_results(output: FinalOutput, enhanced: Optional[EnhancedQuery]) -> N
             import html
             import json
             js_safe_answer = html.escape(json.dumps(output.answer))
-            st.markdown(
-                f"""
-                <button onclick="navigator.clipboard.writeText({js_safe_answer}).then(() => {{
-                    this.textContent='✅ Copied!'; setTimeout(() => this.textContent='📋 Copy Answer', 1500);
-                }})"
-                style="
-                    background: transparent;
-                    border: 0.5px solid #1e2535;
-                    border-radius: 7px;
-                    color: #64748b;
-                    font-family: 'Outfit', sans-serif;
-                    font-size: 12px;
-                    padding: 7px 14px;
-                    cursor: pointer;
-                    transition: all 0.15s ease;
-                    width: 100%;
-                    height: 38px;
-                "
-                onmouseover="this.style.borderColor='#2d3561'; this.style.color='#a5b4fc'; this.style.background='#13182a';"
-                onmouseout="this.style.borderColor='#1e2535'; this.style.color='#64748b'; this.style.background='transparent';"
-                >📋 Copy Answer</button>
-                """,
-                unsafe_allow_html=True,
+            button_html = (
+                f'<button onclick="navigator.clipboard.writeText({js_safe_answer}).then(() => {{ '
+                f'this.textContent=\'✅ Copied!\'; setTimeout(() => this.textContent=\'📋 Copy Answer\', 1500); '
+                f'}})" style="background: transparent; border: 0.5px solid #1e2535; border-radius: 7px; '
+                f'color: #64748b; font-family: \'Outfit\', sans-serif; font-size: 12px; padding: 7px 14px; '
+                f'cursor: pointer; transition: all 0.15s ease; width: 100%; height: 38px;" '
+                f'onmouseover="this.style.borderColor=\'#2d3561\'; this.style.color=\'#a5b4fc\'; this.style.background=\'#13182a\';" '
+                f'onmouseout="this.style.borderColor=\'#1e2535\'; this.style.color=\'#64748b\'; this.style.background=\'transparent\';">'
+                f'📋 Copy Answer</button>'
             )
+            st.markdown(button_html, unsafe_allow_html=True)
 
     # 4. Interactive Follow-up Questions (Native Streamlit Buttons with theme overrides)
     if output.follow_up_questions and not output.high_dissent:
