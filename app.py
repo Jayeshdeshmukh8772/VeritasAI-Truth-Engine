@@ -206,7 +206,8 @@ def initialize_session_state() -> None:
 
 def run_pipeline(raw_query: str, image_b64: Optional[str] = None) -> FinalOutput:
     """
-    Execute the full 5-stage pipeline by scheduling it onto the background thread pool loop.
+    Execute the full 5-stage pipeline on the main thread's event loop.
+    This preserves Streamlit's thread-local session state and UI context.
 
     Args:
         raw_query: Raw user input string
@@ -215,9 +216,16 @@ def run_pipeline(raw_query: str, image_b64: Optional[str] = None) -> FinalOutput
     Returns:
         FinalOutput with all results, scores, and synthesized answer
     """
-    coro = _pipeline_async(raw_query, image_b64)
-    future = asyncio.run_coroutine_threadsafe(coro, st.session_state.async_loop)
-    return future.result()
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            raise RuntimeError("Loop closed")
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    result = loop.run_until_complete(_pipeline_async(raw_query, image_b64))
+    return result
 
 
 async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
