@@ -305,10 +305,23 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
         else:
             model_statuses[adapter.name] = {"status": "loading", "latency_ms": None}
 
+    # Map query classifications to psychological wait anxiety loading statements
+    q_type = enhanced_obj.query_type.lower()
+    if q_type == "medical":
+        loading_msg = "⚕️ Consulting clinical database guidelines and cross-referencing health registries..."
+    elif q_type == "code":
+        loading_msg = "💻 Parsing code syntax trees, checking import safety, and verifying logical structures..."
+    elif q_type == "creative":
+        loading_msg = "🎨 Priming style registers, gathering creative ideas, and shifting variation paths..."
+    elif q_type == "analytical":
+        loading_msg = "🧩 Decomposing variables, analyzing logical premises, and verifying argument consistency..."
+    else:  # factual
+        loading_msg = "🌐 Querying global information channels and cross-referencing real-time search context..."
+
     # Render initial dynamic loading row
     status_placeholder = st.empty()
     with status_placeholder.container():
-        st.info("🧠 VeritasAI is querying the council...")
+        st.info(loading_msg)
         st.markdown(render_dispatch_pills(model_statuses), unsafe_allow_html=True)
 
     # Wrap adapter call in an async task that updates the status row upon completion
@@ -326,7 +339,7 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
         
         # Rerender dynamic pills
         with status_placeholder.container():
-            st.info("🧠 VeritasAI is querying the council...")
+            st.info(loading_msg)
             st.markdown(render_dispatch_pills(model_statuses), unsafe_allow_html=True)
             
         return result
