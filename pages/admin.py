@@ -10,6 +10,9 @@ import streamlit as st
 import pandas as pd
 import bcrypt
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 st.set_page_config(
     page_title="VeritasAI Admin",

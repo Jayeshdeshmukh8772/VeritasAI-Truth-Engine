@@ -16,6 +16,9 @@ import os
 import uuid
 import yaml
 import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv()
 from datetime import datetime
 from typing import Optional
 
