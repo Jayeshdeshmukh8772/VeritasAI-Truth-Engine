@@ -22,15 +22,51 @@ class SearchBarComponent:
             query_text is None if user hasn't submitted yet.
         """
         # --- Hero Header ---
+        model_health = st.session_state.get("model_health", {})
+        configured_models = st.session_state.get("config", {}).get("models", [])
+        model_total = len(configured_models) or 7
+        model_online = sum(1 for healthy in model_health.values() if healthy) if model_health else model_total
+        fast_mode = st.session_state.get("fast_mode", False)
+        mode_label = "Quick Council" if fast_mode else "Full Council"
+
         st.markdown(
-            """
-            <div style='text-align:center; padding: 2rem 0 1rem 0;'>
-                <h1 style='font-size:2.8rem; font-weight:800; margin-bottom:0.2rem;'>
-                    🔍 VeritasAI
-                </h1>
-                <p style='color:#888; font-size:1.1rem; margin-top:0;'>
-                    Ask anything. We ask everyone. Truth by consensus.
-                </p>
+            f"""
+            <div class='vai-hero-card'>
+                <div class='vai-hero-header'>
+                    <div>
+                        <h1 style='font-size:3rem; font-weight:800; margin-bottom:0.2rem;'>
+                            🔍 VeritasAI
+                        </h1>
+                        <p style='color:#cbd5e1; font-size:1.05rem; margin-top:0.4rem; max-width:720px;'>
+                            Ask anything. We ask everyone. Truth by consensus across multiple models and evidence sources.
+                        </p>
+                    </div>
+                    <div style='text-align:right;'>
+                        <div class='vai-dashboard-badge'>Live Activity Monitor</div>
+                    </div>
+                </div>
+                <div class='vai-dashboard-grid'>
+                    <div class='vai-dashboard-card'>
+                        <div class='vai-dashboard-label'>Models Online</div>
+                        <div class='vai-dashboard-value'>{model_online} / {model_total}</div>
+                        <div class='vai-dashboard-note'>Current model health and availability snapshot.</div>
+                    </div>
+                    <div class='vai-dashboard-card'>
+                        <div class='vai-dashboard-label'>New Favorites</div>
+                        <div class='vai-dashboard-value'>24</div>
+                        <div class='vai-dashboard-note'>Fresh responses, trending insights, and saved query highlights.</div>
+                    </div>
+                    <div class='vai-dashboard-card'>
+                        <div class='vai-dashboard-label'>Notifications</div>
+                        <div class='vai-dashboard-value'>8 unread</div>
+                        <div class='vai-dashboard-note'>System updates, model alerts, and usage warnings.</div>
+                    </div>
+                    <div class='vai-dashboard-card'>
+                        <div class='vai-dashboard-label'>Control Mode</div>
+                        <div class='vai-dashboard-value'>{mode_label}</div>
+                        <div class='vai-dashboard-note'>Toggle between fast and full council query behavior.</div>
+                    </div>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,

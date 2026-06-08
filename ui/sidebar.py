@@ -3,6 +3,7 @@ VeritasAI Sidebar Control Panel.
 Query history, fast/deep mode toggle, model health status, and configuration controls.
 """
 
+import os
 import streamlit as st
 from typing import List
 
@@ -75,6 +76,39 @@ class SidebarComponent:
 
             st.write("---")
 
+            # --- Free Usage Tracker ---
+            st.markdown("#### 📊 Free Usage Tracker")
+            config = st.session_state.get("config", {})
+            rate_tracker = st.session_state.get("rate_tracker")
+            model_configs = {cfg["name"]: cfg for cfg in config.get("models", [])}
+            if rate_tracker and model_configs:
+                env_key_map = {
+                    "groq": "GROQ_API_KEY",
+                    "gemini": "GEMINI_API_KEY",
+                    "cerebras": "CEREBRAS_API_KEY",
+                    "mistral": "MISTRAL_API_KEY",
+                    "openrouter_deepseek": "OPENROUTER_API_KEY",
+                    "openrouter_llama4": "OPENROUTER_API_KEY",
+                    "nvidia_nim": "NVIDIA_NIM_API_KEY",
+                    "cohere": "COHERE_API_KEY",
+                }
+                for model_name, cfg in model_configs.items():
+                    daily_limit = cfg.get("daily_limit", 100)
+                    used = rate_tracker.get_count(model_name)
+                    tokens = rate_tracker.get_tokens(model_name)
+                    remaining = max(0, daily_limit - used)
+                    api_key_name = env_key_map.get(model_name, None)
+                    key_status = "✅ Key present" if api_key_name and os.getenv(api_key_name) else "⚠️ Missing API key"
+                    st.markdown(
+                        f"- `{model_name}` — {used}/{daily_limit} calls used today, {remaining} left. {key_status}"
+                    )
+                    if tokens:
+                        st.caption(f"  • Tokens used today: {tokens}")
+            else:
+                st.caption("Run a query to populate usage stats")
+
+            st.write("---")
+
             # --- Query History ---
             st.markdown("#### 📜 Query History")
             history: List[str] = st.session_state.get("query_history", [])
@@ -96,8 +130,7 @@ class SidebarComponent:
             # --- Session Info ---
             sess_id = st.session_state.get("session_id", "unknown")
             st.caption(f"Session: `{sess_id[:12]}...`")
-            st.markdown("🔒 [Admin Dashboard](/admin)")
-            st.markdown("[📘 GitHub](https://github.com/veritas-ai) | [📖 Docs](#)")
+            st.caption("Admin dashboard and external docs links removed for a cleaner dashboard experience.")
 
     @staticmethod
     def add_to_history(query: str) -> None:

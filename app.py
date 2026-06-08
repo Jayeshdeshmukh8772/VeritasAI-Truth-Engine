@@ -44,7 +44,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        "Get Help": "https://github.com/veritasai",
         "About": "VeritasAI v1.0 — Ask anything. We ask everyone.",
     },
 )
@@ -167,8 +166,8 @@ def initialize_session_state() -> None:
         CerebrasAdapter(),
         MistralAdapter(),
         NvidiaNimAdapter(),
-        OpenRouterAdapter(model_id="deepseek/deepseek-r1:free"),
-        OpenRouterAdapter(model_id="meta-llama/llama-4-maverick:free"),
+        OpenRouterAdapter(model_id="meta-llama/llama-3.3-70b-instruct:free"),
+        OpenRouterAdapter(model_id="google/gemma-4-31b-it:free"),
         CohereAdapter(),
     ]
     st.session_state.adapters = adapter_pool
@@ -311,13 +310,25 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
         cfg = model_cfg_map.get(slug, {"enabled": True, "daily_limit": 100})
         
         if fast_mode and adapter not in active_adapters:
-            model_statuses[adapter.name] = {"status": "skipped", "latency_ms": None}
+            model_statuses[adapter.name] = {
+                "status": "skipped",
+                "latency_ms": None,
+                "detail": "Not used in Fast Mode"
+            }
         elif not cfg.get("enabled", True):
-            model_statuses[adapter.name] = {"status": "skipped", "latency_ms": None}
+            model_statuses[adapter.name] = {
+                "status": "skipped",
+                "latency_ms": None,
+                "detail": "Disabled in configuration"
+            }
         elif not state.rate_tracker.check_quota(slug, cfg.get("daily_limit", 100)):
-            model_statuses[adapter.name] = {"status": "skipped", "latency_ms": None}
+            model_statuses[adapter.name] = {
+                "status": "skipped",
+                "latency_ms": None,
+                "detail": "Daily quota exceeded"
+            }
         else:
-            model_statuses[adapter.name] = {"status": "loading", "latency_ms": None}
+            model_statuses[adapter.name] = {"status": "loading", "latency_ms": None, "detail": None}
 
     # Map query classifications to psychological wait anxiety loading statements
     q_type = enhanced_obj.query_type.lower()
@@ -343,7 +354,8 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
         status_str = result.status.value  # "success" | "failed" | "skipped"
         model_statuses[name] = {
             "status": status_str,
-            "latency_ms": result.latency_ms if status_str == "success" else None
+            "latency_ms": result.latency_ms if status_str == "success" else None,
+            "detail": None if status_str == "success" else (result.error_msg or result.error_type or "Unknown error")
         }
         with status_placeholder.container():
             st.info(loading_msg)

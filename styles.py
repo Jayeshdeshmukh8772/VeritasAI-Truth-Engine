@@ -173,7 +173,71 @@ html, body, [data-testid="stAppViewContainer"],
 
 
 /* ══════════════════════════════════════════
-   4. GIT DIFF — QUERY ENHANCEMENT BLOCK
+   4. DASHBOARD PANELS
+══════════════════════════════════════════ */
+.vai-hero-card {
+    background: rgba(12, 18, 34, 0.82);
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(18px);
+    border-radius: 24px;
+    padding: 1.6rem 1.6rem 1.2rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+}
+.vai-hero-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.vai-dashboard-badge {
+    display: inline-flex;
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(68, 82, 149, 0.16);
+    color: #c3dafe;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+.vai-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1.2rem;
+}
+.vai-dashboard-card {
+    background: rgba(15, 20, 33, 0.88);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 18px;
+    padding: 1rem 1rem 0.95rem;
+}
+.vai-dashboard-label {
+    color: #94a3b8;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 0.55rem;
+    display: block;
+}
+.vai-dashboard-value {
+    color: #f8fafc;
+    font-size: 1.45rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+}
+.vai-dashboard-note {
+    color: #cbd5e1;
+    font-size: 0.91rem;
+    line-height: 1.5;
+}
+@media (max-width: 960px) {
+    .vai-dashboard-grid { grid-template-columns: 1fr; }
+}
+
+
+/* ══════════════════════════════════════════
+   5. GIT DIFF — QUERY ENHANCEMENT BLOCK
 ══════════════════════════════════════════ */
 
 .vai-diff-card {
@@ -251,6 +315,16 @@ html, body, [data-testid="stAppViewContainer"],
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
     opacity: 0.65;
+}
+.vai-pill-detail {
+    display: block;
+    font-size: 10px;
+    color: #94a3b8;
+    margin-top: 2px;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* States */
@@ -598,18 +672,21 @@ def render_diff(original: str, enhanced: str, query_type: str = "factual") -> st
 def render_dispatch_pills(model_statuses: dict) -> str:
     """
     Render the operational dispatch tracker row.
-    model_statuses: dict of { model_name: {"status": "success"|"loading"|"failed"|"skipped", "latency_ms": int|None} }
+    model_statuses: dict of { model_name: {"status": "success"|"loading"|"failed"|"skipped", "latency_ms": int|None, "detail": str|None} }
     """
     pills_html = ""
     for name, info in model_statuses.items():
         status = info.get("status", "skipped")
         lat = info.get("latency_ms")
+        detail = info.get("detail")
         lat_str = f"{lat}ms" if lat else ("…" if status == "loading" else "—")
+        detail_html = f"<span class='vai-pill-detail'>{detail}</span>" if detail else ""
         pills_html += f"""
 <div class="vai-pill {status}">
   <div class="vai-pill-dot"></div>
   {name}
   <span class="vai-pill-time">{lat_str}</span>
+  {detail_html}
 </div>"""
     return f'<div class="vai-dispatch-row">{pills_html}</div>'
 
