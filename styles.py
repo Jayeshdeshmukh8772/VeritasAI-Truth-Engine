@@ -35,71 +35,263 @@ html, body, [data-testid="stAppViewContainer"],
 
 
 /* ══════════════════════════════════════════
-   2. SIDEBAR
+   2. SIDEBAR — GLASSMORPHISM
 ══════════════════════════════════════════ */
 
 [data-testid="stSidebar"] {
-    background-color: #0f1219 !important;
-    border-right: 0.5px solid #1e2535 !important;
+    background: linear-gradient(165deg, #0a0d18 0%, #0e1220 50%, #0a0f1c 100%) !important;
+    border-right: 1px solid rgba(255,255,255,0.06) !important;
 }
-
 [data-testid="stSidebar"] > div:first-child {
-    padding: 1rem 0.85rem !important;
+    padding: 0.75rem 0.75rem 1.5rem !important;
 }
 
-/* Sidebar section headers */
-[data-testid="stSidebar"] h3 {
-    font-family: 'Outfit', sans-serif !important;
-    font-size: 10px !important;
-    font-weight: 500 !important;
-    color: #4a5568 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.1em !important;
-    margin: 1rem 0 0.4rem !important;
-    padding-bottom: 0.3rem !important;
-    border-bottom: 0.5px solid #1e2535 !important;
+/* ── Branding ── */
+.sb-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 4px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    margin-bottom: 14px;
+}
+.sb-logo-ring {
+    font-size: 22px;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(92,107,192,0.15);
+    border: 1px solid rgba(92,107,192,0.3);
+    border-radius: 12px;
+    flex-shrink: 0;
+}
+.sb-brand-name {
+    font-size: 15px; font-weight: 700;
+    color: #e2e8f0;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: -0.01em;
+}
+.sb-brand-sub {
+    font-size: 10px; color: #475569;
+    font-family: 'Outfit', sans-serif;
+    margin-top: 1px;
+}
+.sb-live-badge {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 5px;
+    background: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.25);
+    border-radius: 20px;
+    padding: 3px 9px;
+    font-size: 10px; font-weight: 600;
+    color: #4ade80;
+    font-family: 'Outfit', sans-serif;
+    white-space: nowrap;
+}
+.sb-live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #4ade80;
+    animation: sb-pulse 2s ease-in-out infinite;
+    display: inline-block;
+}
+@keyframes sb-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.8); }
 }
 
-/* Toggle labels */
-[data-testid="stSidebar"] label {
+/* ── Section labels ── */
+.sb-section-label {
+    font-size: 9.5px; font-weight: 700;
+    color: #334155;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-family: 'Outfit', sans-serif;
+    margin: 14px 0 6px 2px;
+}
+
+/* ── Glass cards ── */
+.sb-glass-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 12px;
+    backdrop-filter: blur(10px);
+    margin-bottom: 4px;
+}
+.sb-controls-card label {
     color: #94a3b8 !important;
     font-size: 12px !important;
     font-family: 'Outfit', sans-serif !important;
 }
 
-/* Toggle switch */
-[data-testid="stSidebar"] [data-testid="stCheckbox"] > label {
-    gap: 8px !important;
+/* ── Activity monitor ── */
+.sb-activity-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+.sb-activity-cell {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 10px 8px;
+    text-align: center;
+}
+.sb-activity-value {
+    font-size: 22px; font-weight: 700;
+    color: #c7d2fe;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1;
+}
+.sb-activity-desc {
+    font-size: 9px; color: #475569;
+    font-family: 'Outfit', sans-serif;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
-/* Slider track */
-[data-testid="stSidebar"] [data-testid="stSlider"] > div > div > div {
-    background: #1e2535 !important;
+/* ── Weight bar ── */
+.sb-weight-row { margin-top: 8px; }
+.sb-weight-bar {
+    height: 6px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.05);
 }
-[data-testid="stSidebar"] [data-testid="stSlider"] > div > div > div > div {
-    background: #5c6bc0 !important;
+.sb-weight-fill-sem {
+    height: 100%;
+    background: linear-gradient(90deg, #818cf8, #5c6bc0);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+.sb-weight-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
 }
 
-/* Sidebar buttons (query history) */
+/* ── Model health rows ── */
+.sb-health-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.sb-health-row:last-child { border-bottom: none; }
+.sb-health-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.health-dot-ok  { background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,0.5); }
+.health-dot-bad { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.4); }
+.sb-health-name {
+    font-size: 11px; color: #94a3b8;
+    font-family: 'JetBrains Mono', monospace;
+    flex: 1; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+}
+.sb-health-status {
+    font-size: 10px; font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    flex-shrink: 0;
+}
+
+/* ── Usage tracker ── */
+.sb-usage-row {
+    margin-bottom: 10px;
+}
+.sb-usage-row:last-child { margin-bottom: 0; }
+.sb-usage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+.sb-usage-name {
+    font-size: 10.5px; color: #94a3b8;
+    font-family: 'Outfit', sans-serif;
+}
+.sb-usage-count {
+    font-size: 10px; color: #475569;
+    font-family: 'JetBrains Mono', monospace;
+}
+.sb-usage-track {
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.sb-usage-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.4s ease;
+}
+
+/* ── History buttons ── */
 [data-testid="stSidebar"] button[kind="secondary"] {
-    background: transparent !important;
-    border: 0.5px solid #1e2535 !important;
+    background: rgba(255,255,255,0.03) !important;
+    border: 1px solid rgba(255,255,255,0.07) !important;
     color: #64748b !important;
     font-size: 11px !important;
     font-family: 'JetBrains Mono', monospace !important;
     text-align: left !important;
-    padding: 6px 10px !important;
-    border-radius: 6px !important;
+    padding: 7px 10px !important;
+    border-radius: 8px !important;
     transition: all 0.15s ease !important;
     width: 100% !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    margin-bottom: 4px !important;
 }
 [data-testid="stSidebar"] button[kind="secondary"]:hover {
-    background: #13182a !important;
-    border-color: #2d3561 !important;
+    background: rgba(92,107,192,0.12) !important;
+    border-color: rgba(92,107,192,0.3) !important;
     color: #a5b4fc !important;
+}
+
+/* ── Empty hint ── */
+.sb-empty-hint {
+    font-size: 11px; color: #334155;
+    font-family: 'Outfit', sans-serif;
+    text-align: center;
+    padding: 8px 0;
+    font-style: italic;
+}
+
+/* ── Session footer ── */
+.sb-footer {
+    margin-top: 18px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    color: #334155;
+    font-family: 'Outfit', sans-serif;
+}
+.sb-footer code {
+    font-size: 9px;
+    color: #3d4fa8;
+    background: rgba(61,79,168,0.12);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Slider track inside sidebar */
+[data-testid="stSidebar"] [data-testid="stSlider"] > div > div > div {
+    background: rgba(255,255,255,0.08) !important;
+}
+[data-testid="stSidebar"] [data-testid="stSlider"] > div > div > div > div {
+    background: #5c6bc0 !important;
 }
 
 
