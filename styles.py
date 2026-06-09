@@ -15,7 +15,10 @@ GLOBAL_CSS = """
 
 html, body, [data-testid="stAppViewContainer"],
 [data-testid="stApp"] {
-    background-color: #0B0E14 !important;
+    background-color: #05070B !important;
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(92, 107, 192, 0.04) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.02) 0%, transparent 40%) !important;
     color: #e2e8f0 !important;
     font-family: 'Outfit', sans-serif !important;
 }
@@ -554,13 +557,15 @@ html, body, [data-testid="stAppViewContainer"],
 ══════════════════════════════════════════ */
 
 .vai-consensus-card {
-    background: #0d1120;
-    border: 0.5px solid #2d3561;
+    background: rgba(13, 17, 32, 0.75);
+    border: 1px solid rgba(92, 107, 192, 0.15);
     border-radius: 12px;
     padding: 18px 20px;
     position: relative;
     overflow: hidden;
     margin: 0.5rem 0 1rem;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    backdrop-filter: blur(12px);
 }
 /* top accent line */
 .vai-consensus-card::before {
@@ -568,7 +573,7 @@ html, body, [data-testid="stAppViewContainer"],
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent 0%, #5c6bc0 50%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, #818cf8 50%, transparent 100%);
 }
 .vai-consensus-header {
     display: flex;
@@ -631,15 +636,16 @@ html, body, [data-testid="stAppViewContainer"],
     margin: 0.5rem 0 1rem;
 }
 .vai-model-card {
-    background: #0f1219;
-    border: 0.5px solid #1e2535;
-    border-radius: 9px;
+    background: rgba(13, 17, 32, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
     padding: 15px 18px;
-    transition: border-color 0.2s ease;
+    transition: all 0.2s ease;
     font-family: 'Outfit', sans-serif;
     position: relative;
+    backdrop-filter: blur(8px);
 }
-.vai-model-card:hover { border-color: #2d3561; }
+.vai-model-card:hover { border-color: rgba(92, 107, 192, 0.4); background: rgba(13, 17, 32, 0.65); }
 .vai-model-card.outlier {
     border-color: #5a2020;
     background: #110a0a;
@@ -828,6 +834,311 @@ h3 {
     color: #4a5568 !important;
     font-size: 11px !important;
 }
+
+/* Tables inside Consensus Answer / Model Responses */
+.vai-consensus-text table, .vai-mc-response table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.vai-consensus-text th, .vai-mc-response th {
+    background: rgba(255, 255, 255, 0.04);
+    color: #94a3b8;
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    font-family: 'Outfit', sans-serif;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+}
+.vai-consensus-text td, .vai-mc-response td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: #cbd5e1;
+    font-family: 'Outfit', sans-serif;
+}
+.vai-consensus-text tr:last-child td, .vai-mc-response tr:last-child td {
+    border-bottom: none;
+}
+.vai-consensus-text tr:hover td, .vai-mc-response tr:hover td {
+    background: rgba(255, 255, 255, 0.015);
+}
+
+/* Callouts / Alerts inside Consensus Answer / Model Responses */
+.vai-callout {
+    padding: 12px 16px;
+    margin: 14px 0;
+    border-radius: 8px;
+    border-left: 4px solid #5c6bc0;
+    background: rgba(92, 107, 192, 0.05);
+    font-size: 13px;
+    line-height: 1.6;
+}
+.vai-callout-note {
+    border-left-color: #818cf8;
+    background: rgba(129, 140, 248, 0.05);
+    color: #cbd5e1;
+}
+.vai-callout-important {
+    border-left-color: #fb7185;
+    background: rgba(251, 113, 133, 0.05);
+    color: #fda4af;
+}
+.vai-callout-warning {
+    border-left-color: #fbbf24;
+    background: rgba(251, 191, 36, 0.05);
+    color: #fde68a;
+}
+.vai-callout-tip {
+    border-left-color: #34d399;
+    background: rgba(52, 211, 153, 0.05);
+    color: #a7f3d0;
+}
+.vai-callout-caution {
+    border-left-color: #f87171;
+    background: rgba(248, 113, 113, 0.05);
+    color: #fca5a5;
+}
+
+/* Headers inside Consensus Answer / Model Responses */
+.vai-consensus-text h3, .vai-mc-response h3 {
+    font-size: 16px;
+    color: #f1f5f9;
+    margin-top: 20px;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: -0.01em;
+}
+.vai-consensus-text h4, .vai-mc-response h4 {
+    font-size: 14px;
+    color: #e2e8f0;
+    margin-top: 16px;
+    margin-bottom: 6px;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+}
+
+/* Lists inside Consensus Answer / Model Responses */
+.vai-consensus-text ul, .vai-consensus-text ol, .vai-mc-response ul, .vai-mc-response ol {
+    margin: 8px 0 14px 20px;
+    padding: 0;
+}
+.vai-consensus-text li, .vai-mc-response li {
+    font-size: 13.5px;
+    color: #cbd5e1;
+    margin-bottom: 6px;
+    line-height: 1.6;
+}
+
+/* Paragraphs & general text */
+.vai-consensus-text p, .vai-mc-response p {
+    margin: 0 0 12px 0;
+}
+.vai-consensus-text p:last-child, .vai-mc-response p:last-child {
+    margin-bottom: 0;
+}
+
+/* ══════════════════════════════════════════
+   11. CLAUDE & BOLT.NEW STYLES (LANDING PAGE)
+   ══════════════════════════════════════════ */
+
+.vai-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.vai-logo-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.vai-purple-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #818cf8;
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 10px rgba(129, 140, 248, 0.6);
+    animation: vai-dot-pulse 2s infinite ease-in-out;
+}
+
+@keyframes vai-dot-pulse {
+    0%, 100% { opacity: 0.6; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.1); }
+}
+
+.vai-logo-text {
+    font-family: 'Outfit', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #e2e8f0;
+    letter-spacing: -0.02em;
+}
+
+.vai-version {
+    font-size: 11px;
+    color: #475569;
+    font-weight: 400;
+    margin-left: 5px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.vai-badge-container {
+    display: flex;
+    align-items: center;
+}
+
+.vai-header-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    background: rgba(16, 185, 129, 0.05);
+    padding: 4px 12px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+}
+
+.vai-section-header {
+    font-family: 'Outfit', sans-serif;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin: 20px 0 10px 2px;
+}
+
+/* Landing card container */
+.vai-query-container {
+    background: rgba(10, 14, 23, 0.85) !important;
+    border: 1px solid rgba(255, 255, 255, 0.07) !important;
+    border-radius: 16px !important;
+    padding: 24px !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4) !important;
+    backdrop-filter: blur(20px) !important;
+    margin-bottom: 24px !important;
+}
+
+/* Query container inputs - make textarea blend in */
+.vai-query-container [data-testid="stTextArea"] {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.vai-query-container [data-testid="stTextArea"] textarea {
+    background: #090d16 !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-radius: 8px !important;
+    color: #f1f5f9 !important;
+    font-size: 15px !important;
+    padding: 16px !important;
+    line-height: 1.6 !important;
+    min-height: 110px !important;
+    transition: all 0.25s ease !important;
+}
+
+.vai-query-container [data-testid="stTextArea"] textarea:focus {
+    border-color: rgba(129, 140, 248, 0.4) !important;
+    box-shadow: 0 0 12px rgba(129, 140, 248, 0.15) !important;
+}
+
+/* Button row spacing & styling */
+.vai-query-container [data-testid="stHorizontalBlock"] {
+    gap: 12px !important;
+}
+
+/* Target both Enhance & Dispatch and Quick Run buttons */
+.vai-query-container button {
+    height: 38px !important;
+    padding: 0 20px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    border-radius: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    width: 100% !important;
+}
+
+/* Enhance & Dispatch - Primary styling */
+.vai-query-container button[kind="primary"] {
+    background: rgba(92, 107, 192, 0.15) !important;
+    border: 1px solid rgba(92, 107, 192, 0.35) !important;
+    color: #c7d2fe !important;
+    box-shadow: 0 2px 8px rgba(92, 107, 192, 0.05) !important;
+}
+
+.vai-query-container button[kind="primary"]:hover {
+    background: rgba(92, 107, 192, 0.25) !important;
+    border-color: rgba(92, 107, 192, 0.55) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 15px rgba(92, 107, 192, 0.2) !important;
+}
+
+/* Quick Run & Clear - Secondary styling */
+.vai-query-container button[kind="secondary"] {
+    background: transparent !important;
+    border: 1px solid rgba(255, 255, 255, 0.07) !important;
+    color: #94a3b8 !important;
+}
+
+.vai-query-container button[kind="secondary"]:hover {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: #e2e8f0 !important;
+    background: rgba(255, 255, 255, 0.02) !important;
+}
+
+/* Active Mock Chips Row */
+.vai-chips-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.vai-chip {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: #64748b;
+    font-size: 12px;
+    font-family: 'Outfit', sans-serif;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.vai-chip:hover {
+    background: rgba(92, 107, 192, 0.08);
+    border-color: rgba(92, 107, 192, 0.3);
+    color: #a5b4fc;
+    box-shadow: 0 2px 8px rgba(92, 107, 192, 0.1);
+}
+
 """
 
 
@@ -881,6 +1192,49 @@ def render_dispatch_pills(model_statuses: dict) -> str:
   {detail_html}
 </div>"""
     return f'<div class="vai-dispatch-row">{pills_html}</div>'
+
+
+def markdown_to_html(text: str) -> str:
+    """Helper to convert Markdown text into premium, styled HTML elements."""
+    import re
+    import markdown
+    
+    # Preprocess github-style alerts:
+    # e.g., > [!NOTE] some text -> <div class="vai-callout vai-callout-note">some text</div>
+    lines = text.split('\n')
+    in_blockquote = False
+    processed_lines = []
+    
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('>'):
+            content = stripped[1:].strip()
+            # Check for alert tags
+            match = re.match(r'^\[!(NOTE|IMPORTANT|WARNING|TIP|CAUTION)\](.*)', content, re.IGNORECASE)
+            if match:
+                alert_type = match.group(1).upper()
+                alert_text = match.group(2).strip()
+                processed_lines.append(f'<div class="vai-callout vai-callout-{alert_type.lower()}">')
+                if alert_text:
+                    processed_lines.append(alert_text)
+                in_blockquote = True
+            else:
+                if in_blockquote:
+                    processed_lines.append(content)
+                else:
+                    processed_lines.append(line)
+        else:
+            if in_blockquote:
+                processed_lines.append('</div>')
+                in_blockquote = False
+            processed_lines.append(line)
+    if in_blockquote:
+        processed_lines.append('</div>')
+    
+    processed_text = '\n'.join(processed_lines)
+    
+    # Convert markdown to HTML with extra (includes tables)
+    return markdown.markdown(processed_text, extensions=['extra'])
 
 
 def render_consensus_card(
@@ -939,6 +1293,9 @@ def render_consensus_card(
 <div class="vai-followup-label">Suggested follow-ups</div>
 <div class="vai-followup-row">{chips}</div>"""
 
+    # Convert markdown answer to HTML
+    html_answer = markdown_to_html(answer)
+
     return f"""
 <div class="vai-consensus-card">
   <div class="vai-consensus-header">
@@ -947,7 +1304,7 @@ def render_consensus_card(
   </div>
   {warning_html}
   {meter_html}
-  <div class="vai-consensus-text">{answer}</div>
+  <div class="vai-consensus-text">{html_answer}</div>
   {fu_html}
 </div>
 """
@@ -1030,6 +1387,7 @@ def render_model_card_html(
         peer_html = f'<span class="vai-peer-rank">peer rank: {peer_rank_score:.2f}</span>'
 
     card_class = "vai-model-card outlier" if is_outlier else "vai-model-card"
+    html_response = markdown_to_html(response)
     return f"""
 <div class="{card_class}">
   <div class="vai-mc-header">
@@ -1046,7 +1404,7 @@ def render_model_card_html(
     <summary style="font-size: 11px; color: #64748b; outline: none; margin-bottom: 6px; font-weight: 500;">
       View Raw Response
     </summary>
-    <div class="vai-mc-response" style="cursor: auto;">{response}</div>
+    <div class="vai-mc-response" style="cursor: auto;">{html_response}</div>
   </details>
   {outlier_html}
   {peer_html}

@@ -60,13 +60,6 @@ from core.cache import ResponseCache
 from core.web_search import search_web
 
 # --- Agents ---
-from agents.groq_adapter import GroqAdapter
-from agents.gemini_adapter import GeminiAdapter
-from agents.cerebras_adapter import CerebrasAdapter
-from agents.mistral_adapter import MistralAdapter
-from agents.nvidia_nim_adapter import NvidiaNimAdapter
-from agents.openrouter_adapter import OpenRouterAdapter
-from agents.cohere_adapter import CohereAdapter
 from agents.enhancer import QuestionEnhancer
 from agents.combiner import ResultCombiner
 
@@ -158,17 +151,20 @@ def initialize_session_state() -> None:
     st.session_state.rate_tracker = RateTracker()
     st.session_state.logger = VeritasLogger()
     st.session_state.cache = ResponseCache()
+    from core.dataloader import LightweightVectorStore
+    st.session_state.vector_store = LightweightVectorStore()
 
-    # Build adapter list — only enabled adapters with configured keys
+    # Build adapter list using unified LangChain adapters mapping config.yaml names
+    from core.unified_adapter import LangChainAdapter
     adapter_pool = [
-        GroqAdapter(),
-        GeminiAdapter(),
-        CerebrasAdapter(),
-        MistralAdapter(),
-        NvidiaNimAdapter(),
-        OpenRouterAdapter(model_id="meta-llama/llama-3.3-70b-instruct:free"),
-        OpenRouterAdapter(model_id="google/gemma-4-31b-it:free"),
-        CohereAdapter(),
+        LangChainAdapter("groq", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile", "GROQ_API_KEY"),
+        LangChainAdapter("gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-flash", "GEMINI_API_KEY", supports_img=True),
+        LangChainAdapter("cerebras", "https://api.cerebras.ai/v1", "gpt-oss-120b", "CEREBRAS_API_KEY"),
+        LangChainAdapter("mistral", "https://api.mistral.ai/v1", "mistral-small-latest", "MISTRAL_API_KEY"),
+        LangChainAdapter("nvidia_nim", "https://integrate.api.nvidia.com/v1", "deepseek-ai/deepseek-v4-pro", "NVIDIA_NIM_API_KEY"),
+        LangChainAdapter("openrouter_llama3", "https://openrouter.ai/api/v1", "meta-llama/llama-3.3-70b-instruct:free", "OPENROUTER_API_KEY"),
+        LangChainAdapter("openrouter_gemma", "https://openrouter.ai/api/v1", "google/gemma-4-31b-it:free", "OPENROUTER_API_KEY"),
+        LangChainAdapter("cohere", "https://api.cohere.ai/compatibility/v1", "command-r-plus", "COHERE_API_KEY"),
     ]
     st.session_state.adapters = adapter_pool
 
@@ -204,7 +200,7 @@ def initialize_session_state() -> None:
 
 # ─── Pipeline execution ───────────────────────────────────────────────────────
 
-def run_pipeline(raw_query: str, image_b64: Optional[str] = None) -> FinalOutput:
+def run_pipeline(raw_query: str, image_b64: Optional[str] = None, precomputed_enhanced: Optional[EnhancedQuery] = None) -> FinalOutput:
     """
     Execute the full 5-stage pipeline on the main thread's event loop.
     This preserves Streamlit's thread-local session state and UI context.
@@ -212,6 +208,7 @@ def run_pipeline(raw_query: str, image_b64: Optional[str] = None) -> FinalOutput
     Args:
         raw_query: Raw user input string
         image_b64: Optional base64-encoded image for multimodal queries
+        precomputed_enhanced: Optional pre-run EnhancedQuery object
 
     Returns:
         FinalOutput with all results, scores, and synthesized answer
@@ -224,17 +221,18 @@ def run_pipeline(raw_query: str, image_b64: Optional[str] = None) -> FinalOutput
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    result = loop.run_until_complete(_pipeline_async(raw_query, image_b64))
+    result = loop.run_until_complete(_pipeline_async(raw_query, image_b64, precomputed_enhanced))
     return result
 
 
-async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
+async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None, precomputed_enhanced: Optional[EnhancedQuery] = None):
     """
     Full 5-stage async pipeline execution.
 
     Args:
         raw_query: Raw user input
         image_b64: Optional base64 image
+        precomputed_enhanced: Optional pre-run EnhancedQuery object
 
     Returns:
         Tuple of (FinalOutput, EnhancedQuery) with all pipeline results
@@ -252,7 +250,9 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
                   message=f"Query received ({len(raw_query)} chars)")
 
     # ── STAGE 1: Question Enhancement ──────────────────────────────────────────
-    if st.session_state.get("feat_enhancer", True):
+    if precomputed_enhanced is not None:
+        enhanced_obj = precomputed_enhanced
+    elif st.session_state.get("feat_enhancer", True):
         enhanced_obj: EnhancedQuery = await state.enhancer.enhance(raw_query)
     else:
         from core.result import EnhancedQuery
@@ -282,22 +282,46 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
     # ── STAGE 2: Parallel LLM Dispatch (with Live Web Search / RAG) ───────────
     dispatch_prompt = enhanced_obj.enhanced
     
+    search_results = ""
     if st.session_state.get("feat_search", True):
         with st.spinner("🌐 Querying live web for real-time facts..."):
-            search_results = search_web(raw_query)
+            search_results = search_web(raw_query) or ""
             if search_results:
                 log.log_event(
                     "INFO", sess_id, "web_search_success", "web_search",
                     query_hash=q_hash,
                     message="Retrieved real-time search context successfully"
                 )
-                dispatch_prompt = (
-                    f"{enhanced_obj.enhanced}\n\n"
-                    f"[REAL-TIME GROUNDING CONTEXT (WEB SEARCH)]:\n"
-                    f"{search_results}\n\n"
-                    f"Instructions: Use the real-time grounding context above to provide an accurate, up-to-date response. "
-                    f"Prioritize the search context facts over your historical training knowledge cutoff."
+
+    rag_context = ""
+    if st.session_state.get("feat_rag", True) and hasattr(state, "vector_store") and state.vector_store.documents:
+        with st.spinner("📚 Querying local vector database for grounding context..."):
+            retrieved = state.vector_store.retrieve(raw_query, state.detector.encoder, k=3)
+            if retrieved:
+                parts = []
+                for idx, (text, source, score) in enumerate(retrieved):
+                    parts.append(f"Source: {source} (Relevance: {score:.2f})\nContent: {text}")
+                rag_context = "\n\n".join(parts)
+                log.log_event(
+                    "INFO", sess_id, "rag_retrieval_success", "rag",
+                    query_hash=q_hash,
+                    message=f"Retrieved {len(retrieved)} local RAG chunks"
                 )
+
+    grounding_context = ""
+    if search_results:
+        grounding_context += f"### [REAL-TIME WEB SEARCH CONTEXT]:\n{search_results}\n\n"
+    if rag_context:
+        grounding_context += f"### [LOCAL REFERENCE DOCUMENT CONTEXT]:\n{rag_context}\n\n"
+        
+    if grounding_context:
+        dispatch_prompt = (
+            f"{enhanced_obj.enhanced}\n\n"
+            f"[GROUNDING CONTEXT]:\n"
+            f"{grounding_context}"
+            f"Instructions: Use the grounding context details provided above (both web search and local references) to synthesize a highly accurate, facts-grounded response. "
+            f"Prioritize the details from the context over your historical training parameters."
+        )
 
     fast_mode = st.session_state.get("fast_mode", False)
     active_adapters = state.adapters[:3] if fast_mode else state.adapters
@@ -391,6 +415,7 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
             consensus_ratio=0.0, trust_scores={}, peer_rankings={},
             hallucination_flags=[], follow_up_questions=[],
             low_consensus=True, all_results=raw_results, total_latency_ms=latency,
+            entropy=0.0,
         )
 
     if len(successful) < min_required:
@@ -402,6 +427,7 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
             consensus_ratio=0.5, trust_scores={r.model: 0.5 for r in successful},
             peer_rankings={}, hallucination_flags=[], follow_up_questions=[],
             low_consensus=True, all_results=raw_results, total_latency_ms=latency,
+            entropy=0.0,
         )
 
     # ── STAGE 3: Anonymized Peer Review ───────────────────────────────────────
@@ -413,12 +439,30 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
     else:
         reviewed_results = successful  # peer_rank_score stays at default 0.5
 
+    # ── STAGE 3.5: LLM Judge Scoring ──────────────────────────────────────────
+    judge_scores = None
+    use_judge = st.session_state.get("feat_judge", True) and not fast_mode
+    if use_judge and len(successful) >= 1:
+        with st.spinner("⚖️ LLM Judge is auditing candidate factuality..."):
+            try:
+                from core.llm_judge import LLMJudge
+                judge = LLMJudge(judge_adapter=state.adapters[0])
+                grounding_text = grounding_context if "grounding_context" in locals() else ""
+                judge_scores = await judge.evaluate_responses(enhanced_obj.enhanced, grounding_text, successful)
+                log.log_event("INFO", sess_id, "llm_judge_complete", "llm_judge",
+                              query_hash=q_hash, message=f"LLM Judge completed for {len(judge_scores)} models")
+            except Exception as e:
+                log.log_event("ERROR", sess_id, "llm_judge_error", "llm_judge",
+                              query_hash=q_hash, message=f"LLM Judge failed: {str(e)}")
+                judge_scores = None
+
     # ── STAGE 4: Hallucination Detection ──────────────────────────────────────
     detection = state.detector.analyze(
         reviewed_results,
         semantic_weight=sem_weight,
         peer_weight=peer_weight,
         query_type=enhanced_obj.query_type,
+        judge_scores=judge_scores,
     )
 
     log.log_event(
@@ -465,6 +509,7 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
             all_results=raw_results,
             total_latency_ms=latency,
             high_dissent=True,
+            entropy=detection.entropy,
         )
     elif detection.low_consensus:
         # Low consensus: skip synthesis, show warning
@@ -480,11 +525,32 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
             all_results=raw_results,
             total_latency_ms=latency,
             high_dissent=False,
+            entropy=detection.entropy,
         )
     else:
         final_answer, follow_ups = await state.combiner.synthesize_with_followups(
             enhanced_obj.enhanced, detection.trusted
         )
+        
+        # ── STAGE 5.5: Adversarial Verification ──
+        verifier_log = ""
+        if st.session_state.get("feat_verifier", True) and not fast_mode:
+            with st.spinner("🛡️ Running adversarial verifier stress-test..."):
+                try:
+                    from agents.adversarial_verifier import AdversarialVerifier
+                    verifier = AdversarialVerifier(verifier_adapter=state.adapters[0])
+                    grounding_text = grounding_context if "grounding_context" in locals() else ""
+                    final_answer, verifier_log = await verifier.verify_and_rebuild(
+                        enhanced_obj.enhanced, grounding_text, final_answer
+                    )
+                    st.session_state["last_verifier_log"] = verifier_log
+                except Exception as e:
+                    verifier_log = f"Verifier error: {str(e)}"
+                    st.session_state["last_verifier_log"] = verifier_log
+        else:
+            if "last_verifier_log" in st.session_state:
+                del st.session_state["last_verifier_log"]
+
         latency = int((datetime.utcnow() - start_time).total_seconds() * 1000)
 
         log.log_event("INFO", sess_id, "synthesis_complete", "combiner",
@@ -502,6 +568,7 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None):
             all_results=raw_results,
             total_latency_ms=latency,
             high_dissent=False,
+            entropy=detection.entropy,
         )
 
     # Log complete query record
@@ -586,8 +653,12 @@ def main() -> None:
     elif "reload_query" in st.session_state:
         pending_query = st.session_state.pop("reload_query")
 
+    # ── STATE CALIBRATION ──────────────────────────────────────────────────────
+    if "calibrating_query" in st.session_state:
+        _render_calibration_screen()
+
     # ── STATE A: LANDING ──────────────────────────────────────────────────────
-    if "current_output" not in st.session_state and not pending_query:
+    elif "current_output" not in st.session_state and not pending_query:
         query_input, image_b64 = SearchBarComponent.render()
 
         if query_input:
@@ -627,14 +698,48 @@ def main() -> None:
             _render_results(output, enhanced)
 
 
+def run_enhancer_only(raw_query: str) -> EnhancedQuery:
+    """Helper to run only Stage 1 (Enhancer) synchronously for prompt calibration."""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    async def _async_enhance():
+        return await st.session_state.enhancer.enhance(raw_query)
+        
+    return loop.run_until_complete(_async_enhance())
+
+
 def _handle_query(raw_query: str, image_b64: Optional[str]) -> None:
     """
-    Execute the pipeline for a new query and display results.
-
-    Args:
-        raw_query: The user's query string
-        image_b64: Optional base64 image
+    Called when a new query is submitted.
+    If enhancer is active, runs the enhancer first and shifts to the calibration/refinement view.
+    Otherwise, starts the full pipeline execution immediately.
     """
+    # Rate limit check
+    if not check_rate_limit():
+        st.error("⚠️ You've reached the hourly query limit (10 queries/hour). Please wait before submitting again.")
+        return
+
+    # If enhancer is active and not bypassed, run it first and show prompt calibration
+    bypass_enhancer = st.session_state.get("bypass_enhancer", False)
+    if st.session_state.get("feat_enhancer", True) and not bypass_enhancer:
+        with st.spinner("✨ Running question enhancer..."):
+            try:
+                enhanced_obj = run_enhancer_only(raw_query)
+                st.session_state["calibrating_query"] = (raw_query, enhanced_obj, image_b64)
+                st.rerun()
+            except Exception as e:
+                st.error(f"Enhancement error: {str(e)}")
+                _handle_run_pipeline(raw_query, image_b64, None)
+    else:
+        _handle_run_pipeline(raw_query, image_b64, None)
+
+
+def _handle_run_pipeline(raw_query: str, image_b64: Optional[str], precomputed: Optional[EnhancedQuery]) -> None:
+    """Run the rest of the pipeline stages and transition to results."""
     # Rate limit check
     if not check_rate_limit():
         st.error("⚠️ You've reached the hourly query limit (10 queries/hour). Please wait before submitting again.")
@@ -644,7 +749,7 @@ def _handle_query(raw_query: str, image_b64: Optional[str]) -> None:
     SidebarComponent.add_to_history(raw_query)
     st.session_state.queries_this_hour = st.session_state.get("queries_this_hour", 0) + 1
 
-    # ── STATE B: RUNNING ─────────────────────────────────────────────────────
+    # ── RUN PIPELINE ──
     with st.spinner("🧠 VeritasAI is querying the council..."):
         status_placeholder = st.empty()
         with status_placeholder.container():
@@ -654,10 +759,8 @@ def _handle_query(raw_query: str, image_b64: Optional[str]) -> None:
             )
 
         try:
-            output = run_pipeline(raw_query, image_b64)
+            output = run_pipeline(raw_query, image_b64, precomputed)
             st.session_state["current_output"] = output
-            # current_enhanced is set inside _pipeline_async via session_state
-
         except Exception as e:
             st.error(f"Pipeline error: {str(e)}")
             st.session_state.logger.log_event(
@@ -672,6 +775,70 @@ def _handle_query(raw_query: str, image_b64: Optional[str]) -> None:
     # Clear status and trigger rerun to show results
     status_placeholder.empty()
     st.rerun()
+
+
+def _render_calibration_screen() -> None:
+    """Render the interactive prompt calibration screen with user inputs and transitions."""
+    raw_query, enhanced_obj, image_b64 = st.session_state["calibrating_query"]
+    
+    st.markdown("### 🛠️ Prompt Calibration & Alignment")
+    
+    # Sleek card highlighting intent
+    st.markdown(
+        f"""
+        <div style='background: rgba(15, 20, 33, 0.88); border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; padding: 1.25rem; margin-bottom: 1.25rem;'>
+            <h4 style='color: #818cf8; margin-top: 0; margin-bottom: 0.5rem;'>Stage 1: Intent & Context Optimization</h4>
+            <p style='font-size: 0.91rem; color: #cbd5e1; line-height: 1.5; margin-bottom: 0.75rem;'>
+                VeritasAI has auto-enhanced your raw input for optimal multi-LLM comprehension. You can edit the refined prompt directly or add custom points before querying the council.
+            </p>
+            <div style='display: flex; gap: 8px;'>
+                <span style='background: rgba(92, 107, 192, 0.16); border: 1px solid rgba(92,107,192,0.3); color: #cbd5e1; padding: 3px 9px; border-radius: 8px; font-size: 0.75rem;'>
+                    Intent: <b>{enhanced_obj.query_type.upper()}</b>
+                </span>
+                <span style='background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16,185,129,0.2); color: #4ade80; padding: 3px 9px; border-radius: 8px; font-size: 0.75rem;'>
+                    Privacy Filter: <b>Active</b>
+                </span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    # Display editable text area with the enhanced query
+    if "refined_prompt_text" not in st.session_state:
+        st.session_state["refined_prompt_text"] = enhanced_obj.enhanced
+        
+    refined_prompt = st.text_area(
+        "Refine Enhanced Prompt",
+        value=st.session_state["refined_prompt_text"],
+        height=180,
+        label_visibility="collapsed"
+    )
+    st.session_state["refined_prompt_text"] = refined_prompt
+    
+    col1, col2, col3 = st.columns([3, 2, 2])
+    with col1:
+        if st.button("🚀 Query the Council", type="primary", use_container_width=True):
+            # Run the pipeline with the refined text
+            enhanced_obj.enhanced = refined_prompt
+            # Clear calibration state
+            del st.session_state["calibrating_query"]
+            if "refined_prompt_text" in st.session_state:
+                del st.session_state["refined_prompt_text"]
+            _handle_run_pipeline(raw_query, image_b64, enhanced_obj)
+            st.rerun()
+            
+    with col2:
+        if st.button("✏️ Reset to Original", use_container_width=True):
+            st.session_state["refined_prompt_text"] = raw_query
+            st.rerun()
+            
+    with col3:
+        if st.button("❌ Cancel", use_container_width=True):
+            del st.session_state["calibrating_query"]
+            if "refined_prompt_text" in st.session_state:
+                del st.session_state["refined_prompt_text"]
+            st.rerun()
 
 
 def _render_results(output: FinalOutput, enhanced: Optional[EnhancedQuery]) -> None:
@@ -735,6 +902,34 @@ def _render_results(output: FinalOutput, enhanced: Optional[EnhancedQuery]) -> N
             ),
             unsafe_allow_html=True,
         )
+
+        # Show Shannon Information Entropy rating
+        if hasattr(output, "entropy") and output.entropy is not None:
+            ent = output.entropy
+            if ent < 1.0:
+                ent_level = "Stable Consensus"
+                ent_color = "#10B981"
+            elif ent <= 1.8:
+                ent_level = "Moderate Variance"
+                ent_color = "#F59E0B"
+            else:
+                ent_level = "High Uncertainty / Contradictions"
+                ent_color = "#EF4444"
+                
+            st.markdown(
+                f"""
+                <div style="background: rgba(15, 20, 33, 0.88); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 10px 14px; margin-top: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">📊 Shannon Information Entropy</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: {ent_color};">{ent:.3f} bits ({ent_level})</span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    # Render Adversarial Auditor verification log
+    if st.session_state.get("last_verifier_log"):
+        with st.expander("🛡️ Factual Audit Log (Adversarial Verifier)", expanded=False):
+            st.info(st.session_state["last_verifier_log"])
 
     # Copy and read aloud buttons row
     if output.answer:

@@ -57,6 +57,8 @@ class DetectionResult:
     consensus_ratio: float
     low_consensus: bool        # True if consensus_ratio < threshold
     high_dissent: bool = False  # True if 2 models disagree heavily
+    entropy: float = 0.0
+    centrality_scores: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -72,3 +74,4 @@ class FinalOutput:
     all_results: list
     total_latency_ms: int
     high_dissent: bool = False  # True if 2 models disagree heavily
+    entropy: float = 0.0

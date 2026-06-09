@@ -10,6 +10,7 @@ from typing import List, Optional
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import DBSCAN
 from core.result import LLMResult, DetectionResult
+from core.math_engine import MathematicalFusionEngine
 
 
 def check_math_equivalence(text1: str, text2: str) -> bool:
@@ -125,23 +126,23 @@ class HallucinationDetector:
         self.eps = eps
         self.min_samples = min_samples
 
-    def analyze(self, successful_results: List[LLMResult], semantic_weight: float = 0.6, peer_weight: float = 0.4, query_type: Optional[str] = None) -> DetectionResult:
-        """Performs localized semantic clustering and flags outliers."""
+    def analyze(self, successful_results: List[LLMResult], semantic_weight: float = 0.6, peer_weight: float = 0.4, query_type: Optional[str] = None, judge_scores: Optional[dict] = None) -> DetectionResult:
+        """Performs localized semantic clustering, PageRank centrality rating, Bayesian trust updates, and Shannon Entropy calculations."""
         if not successful_results:
             return DetectionResult([], [], {}, 0.0, False, False)
 
         N = len(successful_results)
         
-        # Determine weights dynamically based on available model count (Section 2 specifications)
+        # Determine baseline weights dynamically based on available model count (Section 2 specifications)
         if N >= 4:
-            sem_w = semantic_weight
-            peer_w = peer_weight
+            sem_w_base = semantic_weight
+            peer_w_base = peer_weight
         elif N == 3:
-            sem_w = 0.35
-            peer_w = 0.65
+            sem_w_base = 0.35
+            peer_w_base = 0.65
         else:  # N <= 2
-            sem_w = 0.20
-            peer_w = 0.80
+            sem_w_base = 0.20
+            peer_w_base = 0.80
 
         # 1. Transform raw text into sentence vectors
         corpus = [res.response for res in successful_results]
@@ -158,6 +159,14 @@ class HallucinationDetector:
                     if check_math_equivalence(successful_results[i].response, successful_results[j].response):
                         similarity_matrix[i, j] = 1.0
                         similarity_matrix[j, i] = 1.0
+
+        # Compute Shannon Entropy
+        entropy = MathematicalFusionEngine.compute_shannon_entropy(similarity_matrix)
+
+        # Compute Eigenvector Centrality (PageRank-style)
+        centrality = MathematicalFusionEngine.compute_eigenvector_centrality(similarity_matrix)
+        centrality_dict = {res.model: float(centrality[idx]) for idx, res in enumerate(successful_results)}
+        max_cent = np.max(centrality) if len(centrality) > 0 else 1.0
 
         high_dissent = False
         outlier_flags = [False] * N
@@ -204,23 +213,77 @@ class HallucinationDetector:
         else:
             # N == 1: Single model response
             semantic_scores = np.array([1.0])
-            sem_w = 0.5
-            peer_w = 0.5
+            sem_w_base = 0.5
+            peer_w_base = 0.5
 
         trusted_pool: List[LLMResult] = []
         outlier_pool: List[LLMResult] = []
         trust_scores: dict[str, float] = {}
 
-        # 4. Synthesize dual-signals into balanced rating
+        # Access dynamic history from streamlit session state or fallback
+        import streamlit as st
+        if st.runtime.exists():
+            mse_history = st.session_state.setdefault("mse_history", {})
+            kalman_states = st.session_state.setdefault("kalman_states", {})
+        else:
+            if not hasattr(self, "mse_history"):
+                self.mse_history = {}
+            if not hasattr(self, "kalman_states"):
+                self.kalman_states = {}
+            mse_history = self.mse_history
+            kalman_states = self.kalman_states
+
+        # 4. Bayesian, Kalman and Dynamic weight calibrations
         for idx, res in enumerate(successful_results):
             sem_score = float(semantic_scores[idx])
-            peer_score = res.peer_rank_score
+            peer_raw = res.peer_rank_score
             
-            # Compute composite trust index
-            composite_trust = round((sem_score * sem_w) + (peer_score * peer_w), 3)
+            # Merge peer review and judge scores if available
+            judge_score = judge_scores.get(res.model, 0.5) if judge_scores else 0.5
+            # Combine signals: 60% peer ranking + 40% LLM Judge factuality
+            peer_final = round((peer_raw * 0.6) + (judge_score * 0.4), 3) if judge_scores else peer_raw
+
+            # Retrieve model's evaluation history
+            history = mse_history.setdefault(res.model, [])
+            
+            # Compute MSE over sliding window of size K=5
+            if history:
+                mse_val = float(np.mean([(s - p)**2 for s, p in history]))
+            else:
+                mse_val = 0.0
+
+            # Calibrate weights using exponential penalty: w_peer = w_peer_0 * e^(-2 * MSE)
+            w_peer = peer_w_base * np.exp(-2.0 * mse_val)
+            w_sem = 1.0 - w_peer
+
+            # Kalman Filter Update State Tracker
+            x_prev, P_prev = kalman_states.get(res.model, (0.85, 0.1))
+            measurement = float((sem_score * w_sem) + (peer_final * w_peer))
+            x_updated, P_updated = MathematicalFusionEngine.run_kalman_filter(x_prev, P_prev, measurement)
+            kalman_states[res.model] = (x_updated, P_updated)
+
+            # Compute Bayesian Conditional Probability: P(H_i | E)
+            c_factor = float(centrality[idx] / max_cent) if max_cent > 0 else 1.0
+            p_e_given_h = 0.5 + 0.5 * c_factor
+            p_e_given_not_h = 0.5 - 0.3 * c_factor
+            p_h = x_updated  # Kalman filtered trust acts as the prior
+            
+            # Bayes formula application
+            numerator = p_e_given_h * p_h
+            denominator = numerator + p_e_given_not_h * (1.0 - p_h)
+            if denominator == 0:
+                composite_trust = 0.5
+            else:
+                composite_trust = round(numerator / denominator, 3)
+
             res.trust_score = composite_trust
             res.semantic_score = round(sem_score, 3)
             trust_scores[res.model] = composite_trust
+
+            # Append current query scores to sliding history (keep max 5)
+            history.append((sem_score, peer_final))
+            if len(history) > 5:
+                history.pop(0)
 
             is_outlier = outlier_flags[idx] or (composite_trust < 0.45)
             if is_outlier:
@@ -240,5 +303,7 @@ class HallucinationDetector:
             trust_scores=trust_scores,
             consensus_ratio=consensus_ratio,
             low_consensus=low_consensus_triggered,
-            high_dissent=high_dissent
+            high_dissent=high_dissent,
+            entropy=round(entropy, 3),
+            centrality_scores=centrality_dict
         )

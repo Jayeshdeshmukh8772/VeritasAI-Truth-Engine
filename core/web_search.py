@@ -21,8 +21,10 @@ def search_web(query: str, max_results: int = 3) -> str:
         Structured context string with titles, sources, and snippets, or empty string on error.
     """
     try:
-        # duckduckgo-search >= 6.x uses: from duckduckgo_search import DDGS
-        from duckduckgo_search import DDGS
+        try:
+            from ddgs import DDGS
+        except ImportError:
+            from duckduckgo_search import DDGS
 
         with DDGS() as ddgs:
             results = list(ddgs.text(query, max_results=max_results))

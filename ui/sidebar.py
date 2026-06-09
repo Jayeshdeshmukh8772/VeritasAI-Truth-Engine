@@ -62,16 +62,125 @@ class SidebarComponent:
             )
             st.toggle("🌐 Live Web Search", value=True, key="feat_search",
                       help="Real-time grounding context via DuckDuckGo")
+            st.toggle("📚 Local RAG Grounding", value=True, key="feat_rag",
+                      help="Use local custom document index for grounding")
             st.toggle("✨ Query Enhancement", value=True, key="feat_enhancer",
                       help="Rewrites query for maximum clarity before dispatch")
             st.toggle("💾 Response Cache", value=True, key="feat_cache",
                       help="Cache identical queries to save API calls")
             st.toggle("🔬 Peer Review", value=True, key="feat_peer",
                       help="Models anonymously critique each other's responses")
+            st.toggle("⚖️ LLM Judge Scoring", value=True, key="feat_judge",
+                      help="Supervise factuality of all council models using an LLM Judge")
+            st.toggle("🛡️ Adversarial Verification Loop", value=True, key="feat_verifier",
+                      help="Auditor model stress-tests and rebuilds final consensus outputs")
             st.toggle("🗣️ Debate Mode", value=False, key="debate_mode",
                       help="Show raw peer review critique text in model cards")
 
             st.markdown('</div>', unsafe_allow_html=True)
+
+            # ── Local Knowledge Base (RAG) ────────────────────────────────────
+            st.markdown('<div class="sb-section-label">📚 Local Knowledge Base</div>', unsafe_allow_html=True)
+            st.markdown('<div class="sb-glass-card">', unsafe_allow_html=True)
+            
+            from core.dataloader import DataLoader, TextChunker
+            
+            uploaded_file = st.file_uploader(
+                "Add reference docs",
+                type=["txt", "md", "pdf"],
+                key="rag_file_uploader",
+                label_visibility="collapsed"
+            )
+            
+            url_input = st.text_input(
+                "Scrape URL",
+                placeholder="https://example.com/doc",
+                key="rag_url_input",
+                label_visibility="collapsed"
+            )
+            
+            chunking_method = st.selectbox(
+                "Chunking Method",
+                ["Recursive Split", "Semantic Drift"],
+                key="rag_chunking_method",
+                label_visibility="visible"
+            )
+            
+            if uploaded_file:
+                file_hash = f"{uploaded_file.name}_{uploaded_file.size}"
+                processed_files = st.session_state.setdefault("processed_rag_files", set())
+                if file_hash not in processed_files:
+                    with st.spinner("Indexing file..."):
+                        content = uploaded_file.read()
+                        text = DataLoader.load_file(content, uploaded_file.name)
+                        
+                        if chunking_method == "Semantic Drift":
+                            chunks = TextChunker.semantic_split(text, st.session_state.detector.encoder)
+                        else:
+                            chunks = TextChunker.recursive_character_split(text)
+                            
+                        st.session_state.vector_store.add_documents(
+                            chunks, uploaded_file.name, st.session_state.detector.encoder
+                        )
+                        processed_files.add(file_hash)
+                        st.success(f"Indexed {len(chunks)} chunks!")
+                        st.rerun()
+                        
+            if url_input and url_input.strip():
+                if st.button("Scrape & Index", use_container_width=True):
+                    processed_urls = st.session_state.setdefault("processed_rag_urls", set())
+                    target_url = url_input.strip()
+                    if target_url not in processed_urls:
+                        with st.spinner("Scraping site..."):
+                            try:
+                                import asyncio
+                                # Run async URL fetch in synchronous streamlit thread
+                                try:
+                                    loop = asyncio.get_event_loop()
+                                except RuntimeError:
+                                    loop = asyncio.new_event_loop()
+                                    asyncio.set_event_loop(loop)
+                                text = loop.run_until_complete(DataLoader.load_url(target_url))
+                                
+                                if chunking_method == "Semantic Drift":
+                                    chunks = TextChunker.semantic_split(text, st.session_state.detector.encoder)
+                                else:
+                                    chunks = TextChunker.recursive_character_split(text)
+                                    
+                                st.session_state.vector_store.add_documents(
+                                    chunks, target_url, st.session_state.detector.encoder
+                                )
+                                processed_urls.add(target_url)
+                                st.success(f"Indexed {len(chunks)} chunks!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Failed to scrape: {str(e)}")
+                                
+            doc_count = len(st.session_state.vector_store.documents) if "vector_store" in st.session_state else 0
+            if doc_count > 0:
+                st.markdown(f"<p style='font-size:11px;color:#4ade80;margin-bottom:8px;'>✅ {doc_count} chunks loaded in memory</p>", unsafe_allow_html=True)
+                if st.button("🗑️ Clear Database", use_container_width=True):
+                    st.session_state.vector_store.clear()
+                    st.session_state["processed_rag_files"] = set()
+                    st.session_state["processed_rag_urls"] = set()
+                    st.success("Database cleared!")
+                    st.rerun()
+            else:
+                st.markdown("<p style='font-size:11px;color:#64748b;'>Empty index. Upload a file or URL.</p>", unsafe_allow_html=True)
+                
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # ── Advanced LLM Settings ──────────────────────────────────────────
+            st.markdown('<div class="sb-section-label">Advanced Parameters</div>', unsafe_allow_html=True)
+            with st.expander("⚙️ LLM Sampling Control", expanded=False):
+                st.slider("Temperature", 0.0, 1.0, 0.2, 0.05, key="sampling_temperature",
+                          help="Lower values reduce hallucination and variance; higher values increase diversity.")
+                st.slider("Top P", 0.1, 1.0, 0.9, 0.05, key="sampling_top_p",
+                          help="Nucleus sampling probability threshold.")
+                st.slider("Frequency Penalty", 0.0, 2.0, 0.0, 0.1, key="sampling_frequency_penalty",
+                          help="Penalize repetitive token sequences.")
+                st.slider("Presence Penalty", 0.0, 2.0, 0.0, 0.1, key="sampling_presence_penalty",
+                          help="Encourage generation of diverse vocabulary/topics.")
 
             # ── Trust Score Weights ───────────────────────────────────────────
             st.markdown('<div class="sb-section-label">Trust Weights</div>', unsafe_allow_html=True)

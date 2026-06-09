@@ -45,3 +45,4 @@ langdetect==1.0.9
 pytest==8.2.2
 pytest-asyncio==0.23.7
 sympy
+markdown
