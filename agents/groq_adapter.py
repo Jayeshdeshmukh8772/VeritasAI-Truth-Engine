@@ -7,9 +7,15 @@ import os
 import asyncio
 import time
 from typing import Optional
-from groq import AsyncGroq
 from core.adapter import LLMAdapter
 from core.result import LLMResult, LLMStatus
+
+try:
+    from groq import AsyncGroq
+    _GROQ_AVAILABLE = True
+except ImportError:
+    _GROQ_AVAILABLE = False
+    AsyncGroq = None
 
 
 class GroqAdapter(LLMAdapter):
@@ -19,13 +25,15 @@ class GroqAdapter(LLMAdapter):
         """Initialize Groq adapter."""
         self.model_id = model_id
         api_key = os.getenv("GROQ_API_KEY", "")
-        self.client = AsyncGroq(api_key=api_key) if api_key else None
+        self.client = AsyncGroq(api_key=api_key) if (api_key and _GROQ_AVAILABLE) else None
 
     async def call(self, prompt: str, image_b64: Optional[str] = None) -> LLMResult:
         """Make an async call to Groq API."""
         start = time.time()
         elapsed = lambda: int((time.time() - start) * 1000)
 
+        if not _GROQ_AVAILABLE:
+            return LLMResult(self.name, LLMStatus.SKIPPED, None, "missing_dep", "groq package not installed", elapsed())
         if not self.client or not os.getenv("GROQ_API_KEY"):
             return LLMResult(self.name, LLMStatus.SKIPPED, None, "missing_key", "Groq API key not configured", elapsed())
 
