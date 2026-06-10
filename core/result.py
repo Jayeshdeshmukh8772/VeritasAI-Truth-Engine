@@ -37,6 +37,9 @@ class EnhancedQuery:
     original: str
     enhanced: str
     query_type: str  # factual | analytical | creative | code | medical
+    input_type: str = "QUESTION" # QUESTION | COMMAND | DOCUMENT | LOG | CODE | SYSTEM_OUTPUT
+    enhancement_skipped: bool = False
+    enhancement_reason: str = ""
 
 
 @dataclass
@@ -62,6 +65,18 @@ class DetectionResult:
 
 
 @dataclass
+class Citation:
+    """Structured citation verifying source and context."""
+    url: str
+    publication_date: Optional[str]
+    retrieval_timestamp: str
+    exact_quote: str
+    supports_claim: bool
+    authority_score: float
+    source_family: str
+    freshness_score: float
+
+@dataclass
 class FinalOutput:
     """Final synthesized output to display to user."""
     answer: Optional[str]
@@ -75,3 +90,13 @@ class FinalOutput:
     total_latency_ms: int
     high_dissent: bool = False  # True if 2 models disagree heavily
     entropy: float = 0.0
+    evidence_agreement: float = 0.0
+    source_freshness: float = 0.0
+    authority_score: float = 0.0
+    hallucination_risk: float = 0.0
+    model_coverage: float = 0.0
+    retrieval_authenticity: float = 0.0
+    final_trust_score: float = 0.0
+    citations: list = field(default_factory=list)  # List[Citation]
+    outlier_reasons: dict = field(default_factory=dict)
+    critical_failures: list = field(default_factory=list)

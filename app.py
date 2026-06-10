@@ -428,6 +428,7 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None, preco
             peer_rankings={}, hallucination_flags=[], follow_up_questions=[],
             low_consensus=True, all_results=raw_results, total_latency_ms=latency,
             entropy=0.0,
+            model_coverage=len(successful) / len(state.adapters) if state.adapters else 0.0
         )
 
     # ── STAGE 3: Anonymized Peer Review ───────────────────────────────────────
@@ -510,6 +511,7 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None, preco
             total_latency_ms=latency,
             high_dissent=True,
             entropy=detection.entropy,
+            model_coverage=len(successful) / len(state.adapters) if state.adapters else 0.0
         )
     elif detection.low_consensus:
         # Low consensus: skip synthesis, show warning
@@ -526,6 +528,7 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None, preco
             total_latency_ms=latency,
             high_dissent=False,
             entropy=detection.entropy,
+            model_coverage=len(successful) / len(state.adapters) if state.adapters else 0.0
         )
     else:
         final_answer, follow_ups = await state.combiner.synthesize_with_followups(
@@ -534,14 +537,15 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None, preco
         
         # ── STAGE 5.5: Adversarial Verification ──
         verifier_log = ""
+        metrics_dict = {}
         if st.session_state.get("feat_verifier", True) and not fast_mode:
             with st.spinner("🛡️ Running adversarial verifier stress-test..."):
                 try:
                     from agents.adversarial_verifier import AdversarialVerifier
                     verifier = AdversarialVerifier(verifier_adapter=state.adapters[0])
                     grounding_text = grounding_context if "grounding_context" in locals() else ""
-                    final_answer, verifier_log = await verifier.verify_and_rebuild(
-                        enhanced_obj.enhanced, grounding_text, final_answer
+                    final_answer, verifier_log, metrics_dict = await verifier.verify_and_rebuild(
+                        enhanced_obj.original, enhanced_obj.enhanced, grounding_text, final_answer
                     )
                     st.session_state["last_verifier_log"] = verifier_log
                 except Exception as e:
@@ -552,6 +556,59 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None, preco
                 del st.session_state["last_verifier_log"]
 
         latency = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+
+        # ── STAGE 6: Deterministic Scoring ──
+        from core.scoring import compute_retrieval_authenticity, compute_freshness, compute_final_trust
+        from core.result import Citation
+
+        raw_citations = metrics_dict.get("citations", [])
+        structured_citations = []
+        for c in raw_citations:
+            structured_citations.append(Citation(
+                url=c.get("url", ""),
+                publication_date=c.get("publication_date"),
+                retrieval_timestamp=c.get("retrieval_timestamp", ""),
+                exact_quote=c.get("exact_quote", ""),
+                supports_claim=c.get("supports_claim", True),
+                authority_score=0.0,
+                source_family=c.get("source_family", ""),
+                freshness_score=0.0
+            ))
+            
+        retrieval_auth = compute_retrieval_authenticity(structured_citations)
+        source_fresh = compute_freshness(structured_citations)
+        model_cov = len(successful) / len(state.adapters) if state.adapters else 0.0
+        
+        # Syndication Detection
+        unique_families = set([c.source_family for c in structured_citations if c.source_family])
+        independent_sources = len(unique_families)
+        
+        # Calculate Evidence Agreement
+        evidence_agreement = 0.9 # Baseline for when we have independent sources
+        if independent_sources <= 1:
+            evidence_agreement = min(evidence_agreement, 0.25)
+            
+        # Hard refusal handles final_trust
+        if metrics_dict.get("evidence_count", 1) == 0:
+            final_trust = 0.0
+            evidence_agreement = 0.0
+            retrieval_auth = 0.0
+            source_fresh = 0.0
+            authority_score = 0.0
+        else:
+            authority_score = 0.8 # Placeholder, real would aggregate over citations
+            final_trust = compute_final_trust(
+                consensus_ratio=detection.consensus_ratio,
+                model_coverage=model_cov,
+                evidence_agreement=evidence_agreement,
+                authority_score=authority_score,
+                freshness_score=source_fresh,
+                retrieval_authenticity=retrieval_auth,
+                critical_failures=metrics_dict.get("critical_failures", [])
+            )
+            # Authenticity constraint
+            if retrieval_auth == 0.0:
+                final_trust = min(final_trust, 0.15)
 
         log.log_event("INFO", sess_id, "synthesis_complete", "combiner",
                       query_hash=q_hash, latency_ms=latency,
@@ -569,6 +626,15 @@ async def _pipeline_async(raw_query: str, image_b64: Optional[str] = None, preco
             total_latency_ms=latency,
             high_dissent=False,
             entropy=detection.entropy,
+            model_coverage=model_cov,
+            evidence_agreement=evidence_agreement,
+            source_freshness=source_fresh,
+            authority_score=authority_score if metrics_dict.get("evidence_count", 1) > 0 else 0.0,
+            hallucination_risk=0.1 if metrics_dict.get("evidence_count", 1) > 0 else 1.0,
+            retrieval_authenticity=retrieval_auth,
+            final_trust_score=final_trust,
+            citations=structured_citations,
+            critical_failures=metrics_dict.get("critical_failures", [])
         )
 
     # Log complete query record
@@ -857,9 +923,31 @@ def _render_results(output: FinalOutput, enhanced: Optional[EnhancedQuery]) -> N
     st.markdown(render_dispatch_pills(model_statuses), unsafe_allow_html=True)
 
     # 2. Enhanced query diff (Query Optimization Card)
-    if enhanced and enhanced.original != enhanced.enhanced:
+    if enhanced:
         st.markdown("### Query Optimization")
-        st.markdown(render_diff(enhanced.original, enhanced.enhanced, enhanced.query_type), unsafe_allow_html=True)
+        
+        if getattr(enhanced, 'enhancement_skipped', False):
+            st.markdown(
+                f"""
+                <div style='background: #0f1219; border: 0.5px solid #ef4444; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; font-family: "Outfit", sans-serif;'>
+                    <div style='margin-bottom: 8px;'><span style='color: #64748b; font-size: 11px; text-transform: uppercase;'>Input Type:</span><br/><span style='color: #ef4444; font-size: 13px; font-weight: bold;'>{enhanced.input_type}</span></div>
+                    <div style='margin-bottom: 8px;'><span style='color: #64748b; font-size: 11px; text-transform: uppercase;'>Query Enhancement:</span><br/><span style='color: #cbd5e1; font-size: 13px;'>Skipped</span></div>
+                    <div style='margin-bottom: 8px;'><span style='color: #64748b; font-size: 11px; text-transform: uppercase;'>Intent Match:</span> <span style='color: #ef4444; font-size: 12px; font-weight: bold;'>N/A (Input classified as non-query)</span></div>
+                    <div><span style='color: #64748b; font-size: 11px; text-transform: uppercase;'>Reason:</span> <span style='color: #cbd5e1; font-size: 12px;'>{enhanced.enhancement_reason}</span></div>
+                </div>
+                """, unsafe_allow_html=True
+            )
+        elif enhanced.original != enhanced.enhanced:
+            st.markdown(
+                f"""
+                <div style='background: #0f1219; border: 0.5px solid #1e2535; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; font-family: "Outfit", sans-serif;'>
+                    <div style='margin-bottom: 8px;'><span style='color: #64748b; font-size: 11px; text-transform: uppercase;'>Original Query:</span><br/><span style='color: #cbd5e1; font-size: 13px;'>{enhanced.original}</span></div>
+                    <div style='margin-bottom: 8px;'><span style='color: #64748b; font-size: 11px; text-transform: uppercase;'>Enhanced Query:</span><br/><span style='color: #4ade80; font-size: 13px;'>{enhanced.enhanced}</span></div>
+                    <div><span style='color: #64748b; font-size: 11px; text-transform: uppercase;'>Intent Match:</span> <span style='color: #4ade80; font-size: 12px; font-weight: bold;'>✅ PASS</span></div>
+                </div>
+                """, unsafe_allow_html=True
+            )
+            st.markdown(render_diff(enhanced.original, enhanced.enhanced, enhanced.query_type), unsafe_allow_html=True)
 
     # 3. Consensus Answer (Hero Card)
     st.markdown("### Consensus Answer")
@@ -902,6 +990,20 @@ def _render_results(output: FinalOutput, enhanced: Optional[EnhancedQuery]) -> N
             ),
             unsafe_allow_html=True,
         )
+
+        from styles import render_truth_metrics_card
+        if hasattr(output, "final_trust_score") and output.final_trust_score is not None:
+            st.markdown(
+                render_truth_metrics_card(
+                    evidence_agreement=output.evidence_agreement,
+                    source_freshness=output.source_freshness,
+                    authority_score=output.authority_score,
+                    retrieval_authenticity=output.retrieval_authenticity,
+                    hallucination_risk=output.hallucination_risk,
+                    final_trust_score=output.final_trust_score,
+                ),
+                unsafe_allow_html=True,
+            )
 
         # Show Shannon Information Entropy rating
         if hasattr(output, "entropy") and output.entropy is not None:

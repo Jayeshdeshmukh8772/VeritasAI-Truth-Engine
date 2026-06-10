@@ -1491,5 +1491,56 @@ def render_reliability_card(
       <div style="font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600; color: { '#ef4444' if outliers > 0 else '#64748b' };">{outliers}</div>
     </div>
   </div>
+    </div>
+</div>
+"""
+
+def render_truth_metrics_card(
+    evidence_agreement: float,
+    source_freshness: float,
+    authority_score: float,
+    retrieval_authenticity: float,
+    hallucination_risk: float,
+    final_trust_score: float,
+) -> str:
+    """Render the detailed Truth Engine metrics breakdown card."""
+    
+    def score_color(score, invert=False):
+        if invert:
+            score = 1.0 - score
+        if score >= 0.8: return "#10B981"
+        if score >= 0.5: return "#F59E0B"
+        return "#EF4444"
+
+    return f"""
+<div class="vai-consensus-card" style="margin-top: 0.5rem; position: relative;">
+  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap;">
+    <h4 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600; color: #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em;">🔍 Truth Engine Metrics</h4>
+    <span style="font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 20px; background: rgba(255,255,255,0.05); color: {score_color(final_trust_score)};">
+        Final Trust: {final_trust_score * 100:.1f}%
+    </span>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+    <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; border: 0.5px solid #1e2535;">
+      <div style="font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Evidence Agreement</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: {score_color(evidence_agreement)};">{evidence_agreement * 100:.0f}%</div>
+    </div>
+    <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; border: 0.5px solid #1e2535;">
+      <div style="background: transparent; font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Source Freshness</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: {score_color(source_freshness)};">{source_freshness * 100:.0f}%</div>
+    </div>
+    <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; border: 0.5px solid #1e2535;">
+      <div style="font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Authority Score</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: {score_color(authority_score)};">{authority_score * 100:.0f}%</div>
+    </div>
+    <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; border: 0.5px solid #1e2535;">
+      <div style="font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Retrieval Authenticity</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: {score_color(retrieval_authenticity)};">{retrieval_authenticity * 100:.0f}%</div>
+    </div>
+    <div style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; border: 0.5px solid #1e2535; grid-column: span 2;">
+      <div style="font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Hallucination Risk</div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600; color: {score_color(hallucination_risk, invert=True)};">{hallucination_risk * 100:.0f}%</div>
+    </div>
+  </div>
 </div>
 """

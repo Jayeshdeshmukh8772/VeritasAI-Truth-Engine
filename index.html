@@ -1,0 +1,1879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VeritasAI — Decision Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #05070B;
+      --bg-surface: #0D1120;
+      --bg-card: #0F1525;
+      --bg-card-hover: #141929;
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-medium: rgba(255, 255, 255, 0.10);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --text-primary: #F0F2F8;
+      --text-secondary: #8B93A8;
+      --text-muted: #545E78;
+      --accent-emerald: #10B981;
+      --accent-emerald-dim: rgba(16, 185, 129, 0.12);
+      --accent-emerald-border: rgba(16, 185, 129, 0.25);
+      --accent-amber: #F59E0B;
+      --accent-amber-dim: rgba(245, 158, 11, 0.10);
+      --accent-amber-border: rgba(245, 158, 11, 0.25);
+      --accent-red: #EF4444;
+      --accent-red-dim: rgba(239, 68, 68, 0.10);
+      --accent-blue: #3B82F6;
+      --accent-blue-dim: rgba(59, 130, 246, 0.10);
+      --accent-blue-border: rgba(59, 130, 246, 0.25);
+      --font: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 18px;
+      --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
+      --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.5);
+    }
+
+    body {
+      background: #05070B;
+      color: #F0F2F8;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+    }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0D1120;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1E2A45;
+    }
+
+    #app {
+      width: 100%;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 32px;
+      box-sizing: border-box;
+      padding-top: 68px;
+    }
+
+    .card {
+      background: #0F1525;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 14px;
+      padding: 18px 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      box-sizing: border-box;
+    }
+
+    .card-accent-top {
+      border-top: 3px solid #10B981;
+    }
+
+    .card-accent-left {
+      border-left: 3px solid #10B981;
+    }
+
+    .eyebrow {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #545E78;
+      margin-bottom: 12px;
+    }
+
+    #results-main {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+      width: 100%;
+    }
+
+    .col-full    { grid-column: 1 / -1; }
+    .col-left    { grid-column: 1 / 7; }
+    .col-right   { grid-column: 7 / -1; }
+    .col-third   { grid-column: span 4; }
+    .col-twothird { grid-column: span 8; }
+
+    #top-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 52px;
+      background: rgba(5, 7, 11, 0.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      z-index: 100;
+    }
+    
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-text {
+      font-size: 15px;
+      font-weight: 700;
+      color: #F0F2F8;
+    }
+    
+    .logo-badge {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #10B981;
+      background: rgba(16,185,129,0.10);
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(16,185,129,0.20);
+    }
+
+    .header-pills {
+      display: flex;
+      gap: 8px;
+    }
+
+    .pill {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+    
+    .pill-emerald {
+      color: #10B981;
+      background: rgba(16, 185, 129, 0.10);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+    
+    .pill-blue {
+      color: #3B82F6;
+      background: rgba(59, 130, 246, 0.10);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+    }
+    
+    .pill-amber {
+      color: #F59E0B;
+      background: rgba(245, 158, 11, 0.10);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+
+    #panel-search {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      padding-top: 100px;
+      max-width: 720px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .hero-h1 {
+      font-size: 32px;
+      font-weight: 700;
+      color: #F0F2F8;
+      text-align: center;
+      margin: 0;
+    }
+    
+    .hero-p {
+      font-size: 15px;
+      color: #8B93A8;
+      text-align: center;
+      max-width: 520px;
+      line-height: 1.7;
+      margin: 0;
+    }
+
+    .search-wrapper {
+      position: relative;
+      width: 100%;
+    }
+
+    #query-input {
+      width: 100%;
+      height: 54px;
+      background: #0D1120;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 12px;
+      padding: 0 130px 0 18px;
+      font-size: 15px;
+      color: #F0F2F8;
+      box-sizing: border-box;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    #query-input:focus {
+      border: 1px solid rgba(59,130,246,0.5);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.08);
+    }
+    
+    #query-input::placeholder {
+      color: #545E78;
+    }
+
+    .btn-verify {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #10B981;
+      color: #fff;
+      height: 38px;
+      padding: 0 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    
+    .btn-verify:hover {
+      opacity: 0.9;
+    }
+
+    .stat-boxes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      width: 100%;
+      margin-top: 8px;
+    }
+    
+    .stat-box {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 14px 16px;
+      text-align: center;
+    }
+    
+    .stat-num {
+      font-size: 20px;
+      font-weight: 600;
+      color: #10B981;
+    }
+    
+    .stat-lbl {
+      font-size: 11px;
+      color: #545E78;
+      margin-top: 4px;
+    }
+
+    .query-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+    
+    .query-chip {
+      background: #0D1120;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 12px;
+      color: #8B93A8;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .query-chip:hover {
+      border: 1px solid rgba(255,255,255,0.16);
+      color: #F0F2F8;
+    }
+
+    #panel-calibration {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+      padding-top: 80px;
+    }
+    
+    .calib-eyebrow {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #545E78;
+    }
+    
+    .calib-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 4px 0 0 0;
+    }
+    
+    .calib-subtitle {
+      font-size: 13px;
+      color: #8B93A8;
+      margin: 4px 0 0 0;
+    }
+    
+    .badges-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    
+    .diff-header {
+      background: rgba(255,255,255,0.03);
+      padding: 8px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: -18px -20px 0 -20px;
+      border-top-left-radius: 14px;
+      border-top-right-radius: 14px;
+    }
+    
+    .diff-lbl {
+      font-size: 11px;
+      color: #545E78;
+    }
+    
+    .diff-v {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      background: rgba(255,255,255,0.06);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    
+    .diff-body {
+      padding: 12px 0 0 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      line-height: 2.2;
+    }
+    
+    #diff-original {
+      color: #FCA5A5;
+      background: rgba(239,68,68,0.06);
+      padding: 4px 10px;
+      border-radius: 4px;
+      display: block;
+    }
+    
+    #diff-enhanced {
+      color: #6EE7B7;
+      background: rgba(16,185,129,0.06);
+      padding: 4px 10px;
+      border-radius: 4px;
+      display: block;
+      margin-top: 6px;
+    }
+    
+    .meta-line {
+      color: #545E78;
+      margin-top: 6px;
+      display: block;
+      padding-left: 10px;
+    }
+    
+    #refined-input {
+      width: 100%;
+      height: 80px;
+      background: #0D1120;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 13px;
+      color: #F0F2F8;
+      box-sizing: border-box;
+      outline: none;
+      resize: none;
+      line-height: 1.6;
+      font-family: 'Inter', sans-serif;
+    }
+    
+    #refined-input:focus {
+      border: 1px solid rgba(59,130,246,0.5);
+    }
+    
+    .action-row {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .btn-action {
+      height: 44px;
+      flex: 1;
+      border-radius: 10px;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #5B5BD6;
+      color: #fff;
+      font-weight: 600;
+    }
+    
+    .btn-primary:hover {
+      background: #4A4AD5;
+    }
+    
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.10);
+      color: #8B93A8;
+    }
+    
+    .btn-ghost:hover {
+      border: 1px solid rgba(255,255,255,0.20);
+      color: #F0F2F8;
+    }
+    
+    .btn-danger {
+      background: transparent;
+      border: 1px solid rgba(239,68,68,0.20);
+      color: #FCA5A5;
+    }
+    
+    .btn-danger:hover {
+      border: 1px solid rgba(239,68,68,0.40);
+      background: rgba(239,68,68,0.05);
+    }
+
+    #panel-loader {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      padding-top: 130px;
+      max-width: 620px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid rgba(255,255,255,0.06);
+      border-top: 3px solid #10B981;
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+    }
+
+    #loader-status {
+      font-size: 14px;
+      color: #8B93A8;
+      font-style: italic;
+      text-align: center;
+    }
+
+    .checklist {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .step-icon {
+      font-size: 16px;
+      color: #545E78;
+      transition: color 0.3s;
+    }
+    
+    .step-text {
+      font-size: 13px;
+      color: #8B93A8;
+      transition: color 0.3s;
+    }
+
+    .loader-models {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    
+    .model-pill {
+      background: #0D1120;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 12px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    
+    .model-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      transition: background 0.3s;
+    }
+    
+    .model-dot.active {
+      background: #10B981;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+
+    .est-time {
+      font-size: 12px;
+      color: #545E78;
+      margin-top: 4px;
+    }
+
+    #panel-results {
+      display: none;
+      grid-template-columns: 1fr 280px;
+      gap: 20px;
+      align-items: start;
+      width: 100%;
+      padding-top: 80px;
+      padding-bottom: 60px;
+    }
+
+    .zone-label {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #545E78;
+    }
+    .zone-label::before,
+    .zone-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.06);
+    }
+
+    #results-sidebar {
+      position: sticky;
+      top: 68px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: calc(100vh - 88px);
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    
+    #results-sidebar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .trust-score-num {
+      font-size: 40px;
+      font-weight: 700;
+      color: #10B981;
+      text-align: center;
+      margin: 10px 0 6px;
+      line-height: 1;
+    }
+    
+    .trust-score-lbl {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: #10B981;
+      text-align: center;
+    }
+    
+    .trust-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    
+    .trust-bar-fill {
+      height: 100%;
+      background: #10B981;
+      border-radius: 4px;
+      width: 91%;
+    }
+    
+    .mini-stats-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    
+    .mini-stat {
+      text-align: center;
+    }
+    
+    .mini-stat-v {
+      font-size: 13px;
+      font-weight: 600;
+      color: #10B981;
+    }
+    
+    .mini-stat-l {
+      font-size: 10px;
+      color: #545E78;
+    }
+
+    .model-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    
+    .model-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    
+    .mr-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10B981;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    
+    .mr-dot.skipped {
+      background: rgba(255,255,255,0.12);
+      animation: none;
+    }
+    
+    .mr-name {
+      font-size: 12px;
+      color: #F0F2F8;
+      flex: 1;
+    }
+    
+    .mr-name.skipped {
+      color: #545E78;
+    }
+    
+    .mr-right {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #545E78;
+    }
+
+    .qinfo-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .qinfo-row:last-child { margin-bottom: 0; }
+    
+    .qinfo-l { color: #545E78; }
+
+    .rcc-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+    
+    .rcc-cell {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 14px 12px;
+      text-align: center;
+    }
+    
+    .rcc-v {
+      font-size: 16px;
+      font-weight: 600;
+      color: #10B981;
+    }
+    
+    .rcc-l {
+      font-size: 10px;
+      color: #545E78;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 5px;
+    }
+
+    .special-card {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.22);
+      border-radius: 14px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .sc-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(16,185,129,0.15);
+      border: 1px solid rgba(16,185,129,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: #10B981;
+      flex-shrink: 0;
+    }
+    
+    .sc-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #10B981;
+      margin: 0;
+    }
+    
+    .sc-body {
+      font-size: 12px;
+      color: #6EE7B7;
+      margin-top: 3px;
+      line-height: 1.6;
+    }
+
+    .decomp-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-top: 12px;
+    }
+    
+    .decomp-score {
+      font-size: 40px;
+      font-weight: 700;
+      color: #10B981;
+      line-height: 1;
+    }
+    
+    .decomp-lbl {
+      font-size: 11px;
+      color: #545E78;
+      margin-top: 4px;
+    }
+    
+    .decomp-note {
+      font-size: 12px;
+      color: #545E78;
+      max-width: 280px;
+      text-align: right;
+      line-height: 1.6;
+    }
+    
+    .decomp-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 18px;
+    }
+    
+    .db-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .db-lbl {
+      font-size: 12px;
+      color: #8B93A8;
+      width: 170px;
+      flex-shrink: 0;
+    }
+    
+    .db-track {
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    
+    .db-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: #3B82F6;
+    }
+    
+    .db-pct {
+      font-size: 11px;
+      font-weight: 600;
+      color: #8B93A8;
+      width: 36px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .ca-header {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    .ca-strength {
+      margin: 12px 0;
+    }
+    
+    .ca-s-top {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    
+    .ca-text {
+      font-size: 14px;
+      color: #F0F2F8;
+      line-height: 1.75;
+      margin-top: 12px;
+    }
+    
+    .ca-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 16px;
+    }
+    
+    .ca-table th {
+      background: rgba(255,255,255,0.03);
+      padding: 8px 12px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #545E78;
+      text-align: left;
+    }
+    
+    .ca-table td {
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding: 10px 12px;
+    }
+    
+    .ca-table tr:nth-child(even) td {
+      background: rgba(255,255,255,0.02);
+    }
+    
+    .ca-callout {
+      background: rgba(59,130,246,0.06);
+      border-left: 3px solid rgba(59,130,246,0.4);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #93C5FD;
+      margin-top: 14px;
+    }
+    
+    .ca-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    
+    .btn-ca {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #8B93A8;
+      font-size: 12px;
+      padding: 7px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+    }
+    
+    .btn-ca:hover {
+      border: 1px solid rgba(255,255,255,0.16);
+      color: #F0F2F8;
+    }
+    
+    .fu-chips {
+      margin-top: 14px;
+    }
+    
+    .fu-lbl {
+      font-size: 10px;
+      color: #545E78;
+      margin-bottom: 8px;
+    }
+    
+    .fu-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .fu-chip {
+      background: rgba(59,130,246,0.10);
+      border: 1px solid rgba(59,130,246,0.25);
+      color: #93C5FD;
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    
+    .fu-chip:hover {
+      background: rgba(59,130,246,0.15);
+    }
+
+    .belief-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    
+    .belief-item {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+    
+    .bi-icon {
+      font-size: 13px;
+      color: #10B981;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    
+    .bi-text {
+      font-size: 13px;
+      color: #8B93A8;
+      line-height: 1.6;
+    }
+
+    .ee-sub {
+      font-size: 12px;
+      color: #545E78;
+      margin-bottom: 14px;
+      margin-top: -8px;
+    }
+    
+    .ee-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .ee-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .ee-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: #F0F2F8;
+      width: 100px;
+      flex-shrink: 0;
+    }
+    
+    .ee-note {
+      font-size: 11px;
+      color: #545E78;
+      width: 150px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .advanced-toggle-btn {
+      grid-column: 1 / -1;
+      width: 100%;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 13px 20px;
+      color: #8B93A8;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .advanced-toggle-btn:hover {
+      border-color: rgba(255,255,255,0.16);
+      color: #F0F2F8;
+    }
+    .toggle-arrow {
+      font-size: 11px;
+      transition: transform 0.25s;
+    }
+    .toggle-arrow.open {
+      transform: rotate(180deg);
+    }
+
+    #advanced-layer {
+      display: none;
+    }
+
+    .risk-items {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    
+    .risk-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    
+    .ri-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    
+    .ri-icon.warn { color: #F59E0B; }
+    .ri-icon.info { color: #3B82F6; }
+
+    .adv-sim-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    
+    .sim-cell {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    
+    .sim-q {
+      font-size: 12px;
+      color: #8B93A8;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+    
+    .sim-v {
+      display: inline-flex;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 10px;
+      border-radius: 20px;
+      color: #10B981;
+      background: rgba(16,185,129,0.10);
+      border: 1px solid rgba(16,185,129,0.25);
+    }
+    
+    .audit-log {
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    
+    .al-item-h {
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .al-item-b {
+      font-size: 12px;
+      color: #8B93A8;
+      margin-top: 4px;
+    }
+
+    .ent-v {
+      margin-top: 14px;
+    }
+    
+    .ent-track {
+      width: 100%;
+      height: 12px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    
+    .ent-fill {
+      width: 88%;
+      background: #10B981;
+      height: 100%;
+      border-radius: 6px;
+    }
+    
+    .ent-lbls {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      font-size: 11px;
+      color: #545E78;
+    }
+    
+    .ent-verdict {
+      font-size: 13px;
+      font-weight: 500;
+      color: #10B981;
+      margin-top: 10px;
+    }
+    
+    .ent-mini {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    
+    .em-cell {
+      flex: 1;
+      text-align: center;
+      background: rgba(255,255,255,0.03);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .tu-matrix {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .hist-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .model-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    
+    .mc-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    
+    .mc-h {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .mc-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: #F0F2F8;
+      flex: 1;
+    }
+    
+    .mc-bar {
+      height: 4px;
+      background: #10B981;
+      border-radius: 2px;
+      margin: 8px 0;
+    }
+    
+    .mc-text {
+      font-size: 12px;
+      color: #8B93A8;
+      line-height: 1.6;
+    }
+
+    .disp-card {
+      background: #0A0E1A;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 16px 20px;
+    }
+    
+    .disp-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    
+    .dp-active {
+      background: rgba(16,185,129,0.08);
+      border: 1px solid rgba(16,185,129,0.20);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 12px;
+      color: #6EE7B7;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .dp-dot {
+      width: 6px;
+      height: 6px;
+      background: #10B981;
+      border-radius: 50%;
+    }
+    
+    .dp-skip {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 12px;
+      color: #545E78;
+    }
+
+    .new-q-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 8px 0 16px;
+    }
+    
+    .btn-new-q {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 10px;
+      padding: 11px 28px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #8B93A8;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s;
+    }
+    
+    .btn-new-q:hover {
+      border: 1px solid rgba(255,255,255,0.20);
+      color: #F0F2F8;
+    }
+
+    .fade-in {
+      opacity: 0;
+      animation: fadeInUp 0.35s ease forwards;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 1024px) {
+      #app { padding: 0 20px; }
+      .rcc-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media (max-width: 768px) {
+      #panel-results { grid-template-columns: 1fr; }
+      #results-sidebar { position: static; order: -1; }
+      .col-left, .col-right { grid-column: 1 / -1; }
+      .rcc-grid { grid-template-columns: repeat(2, 1fr); }
+      #app { padding: 0 14px; }
+      #top-bar { padding: 0 16px; }
+      .header-pills { display: none; }
+    }
+
+    @media (max-width: 480px) {
+      .rcc-grid { grid-template-columns: repeat(2, 1fr); }
+      .hero-h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header id="top-bar">
+    <div class="logo-container">
+      <span class="logo-text">VeritasAI</span>
+      <span class="logo-badge">DECISION INTELLIGENCE</span>
+    </div>
+    <div class="header-pills">
+      <span class="pill pill-emerald">6 Models Active</span>
+      <span class="pill pill-blue">Live Web Context</span>
+      <span class="pill pill-amber">Adversarial Audit ON</span>
+    </div>
+  </header>
+
+  <main id="app">
+    
+    <!-- STATE A: SEARCH -->
+    <div id="panel-search">
+      <div>
+        <h1 class="hero-h1">Verify. Not just answer.</h1>
+        <p class="hero-p" style="margin-top: 8px;">VeritasAI consults 6 AI models, grounds answers in live web evidence, runs adversarial audits, and delivers a reliability score — not just an output.</p>
+      </div>
+
+      <div class="search-wrapper">
+        <input type="text" id="query-input" placeholder="Ask anything that needs a verified answer...">
+        <button class="btn-verify" onclick="startEnhancement()">Verify &rarr;</button>
+      </div>
+
+      <div class="stat-boxes">
+        <div class="stat-box">
+          <div class="stat-num">8 Models</div>
+          <div class="stat-lbl">Consulted</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num">Live Sources</div>
+          <div class="stat-lbl">Grounded</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num">Adversarial</div>
+          <div class="stat-lbl">Audited</div>
+        </div>
+      </div>
+
+      <div class="query-chips">
+        <div class="query-chip" onclick="selectQuery('Petrol price in Pune today')">"Petrol price in Pune today"</div>
+        <div class="query-chip" onclick="selectQuery('RBI repo rate June 2026')">"RBI repo rate June 2026"</div>
+        <div class="query-chip" onclick="selectQuery('Who is the current PM of UK?')">"Who is the current PM of UK?"</div>
+        <div class="query-chip" onclick="selectQuery('FIFA World Cup 2026 winner')">"FIFA World Cup 2026 winner"</div>
+      </div>
+    </div>
+
+    <!-- STATE B: CALIBRATION -->
+    <div id="panel-calibration">
+      <div>
+        <div class="calib-eyebrow">STAGE 1: QUERY CALIBRATION</div>
+        <h2 class="calib-title">Query enhanced for precision</h2>
+        <p class="calib-subtitle">VeritasAI has auto-enhanced your raw input for optimal multi-model comprehension. Edit below if needed.</p>
+        <div class="badges-row">
+          <span class="badge pill-amber">Intent: ANALYTICAL</span>
+          <span class="badge pill-emerald">Privacy Filter: Active</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="diff-header">
+          <span class="diff-lbl">Query Expansion Diff</span>
+          <span class="diff-v">CALIBRATOR_V3</span>
+        </div>
+        <div class="diff-body">
+          <span id="diff-original"></span>
+          <span id="diff-enhanced"></span>
+          <span class="meta-line">type: factual</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="eyebrow">REFINED PROMPT TEXT</div>
+        <textarea id="refined-input"></textarea>
+      </div>
+
+      <div class="action-row">
+        <button class="btn-action btn-primary" onclick="startPipeline()">🚀 Query the Council</button>
+        <button class="btn-action btn-ghost" onclick="resetToOriginal()">✏️ Reset to Original</button>
+        <button class="btn-action btn-danger" onclick="cancelFlow()">✕ Cancel</button>
+      </div>
+    </div>
+
+    <!-- STATE C: LOADER -->
+    <div id="panel-loader">
+      <div class="spinner"></div>
+      <div id="loader-status">Initializing...</div>
+
+      <div class="checklist">
+        <div class="step-item"><span class="step-icon">⟳</span><span class="step-text">Understanding question</span></div>
+        <div class="step-item"><span class="step-icon">⟳</span><span class="step-text">Retrieving evidence</span></div>
+        <div class="step-item"><span class="step-icon">⟳</span><span class="step-text">Consulting models</span></div>
+        <div class="step-item"><span class="step-icon">⟳</span><span class="step-text">Challenging consensus</span></div>
+        <div class="step-item"><span class="step-icon">⟳</span><span class="step-text">Calculating reliability</span></div>
+      </div>
+
+      <div class="loader-models">
+        <div class="model-pill"><div class="model-dot" id="dot-groq"></div>Groq</div>
+        <div class="model-pill"><div class="model-dot" id="dot-gemini"></div>Gemini</div>
+        <div class="model-pill"><div class="model-dot" id="dot-mistral"></div>Mistral</div>
+        <div class="model-pill"><div class="model-dot" id="dot-nvidia"></div>Nvidia NIM</div>
+        <div class="model-pill"><div class="model-dot" id="dot-cohere"></div>Cohere</div>
+        <div class="model-pill"><div class="model-dot" id="dot-cerebras"></div>Cerebras</div>
+      </div>
+      
+      <div class="est-time">Estimated time: 4 seconds</div>
+    </div>
+
+    <!-- STATE D: RESULTS -->
+    <div id="panel-results">
+      <div id="results-main">
+        
+        <!-- CARD 1 -->
+        <div class="col-full card card-accent-top fade-in" style="animation-delay: 0ms;">
+          <div class="eyebrow">RELIABILITY COMMAND CENTER</div>
+          <div class="rcc-grid">
+            <div class="rcc-cell"><div class="rcc-v">High</div><div class="rcc-l">Trust Level</div></div>
+            <div class="rcc-cell"><div class="rcc-v">6 / 6</div><div class="rcc-l">Consensus</div></div>
+            <div class="rcc-cell"><div class="rcc-v">Strong</div><div class="rcc-l">Grounding</div></div>
+            <div class="rcc-cell"><div class="rcc-v" style="color:#F59E0B">Low</div><div class="rcc-l">Entropy</div></div>
+            <div class="rcc-cell"><div class="rcc-v" style="color:#F59E0B">Minimal</div><div class="rcc-l">Risk</div></div>
+            <div class="rcc-cell"><div class="rcc-v">Safe To Use</div><div class="rcc-l">Recommendation</div></div>
+          </div>
+        </div>
+
+        <!-- CARD 2 -->
+        <div class="col-full special-card fade-in" style="animation-delay: 60ms;">
+          <div class="sc-icon">✓</div>
+          <div>
+            <h3 class="sc-title">Safe To Use</h3>
+            <p class="sc-body">Consensus is strong and evidence is grounded in live sources from June 9, 2026. No further verification required before acting on this answer.</p>
+          </div>
+        </div>
+
+        <!-- CARD 3 -->
+        <div class="col-full card fade-in" style="animation-delay: 120ms;">
+          <div class="eyebrow">RELIABILITY SCORE DECOMPOSITION</div>
+          <div class="decomp-top">
+            <div>
+              <div class="decomp-score">89%</div>
+              <div class="decomp-lbl">Composite Reliability Score</div>
+            </div>
+            <div class="decomp-note">100% raw consensus ≠ 100% correctness. This score weights five independent signals.</div>
+          </div>
+          <div class="decomp-bars">
+            <div class="db-row"><div class="db-lbl">Model Consensus</div><div class="db-track"><div class="db-fill" style="width:100%"></div></div><div class="db-pct">35%</div></div>
+            <div class="db-row"><div class="db-lbl">Evidence Grounding</div><div class="db-track"><div class="db-fill" style="width:90%"></div></div><div class="db-pct">30%</div></div>
+            <div class="db-row"><div class="db-lbl">Source Freshness</div><div class="db-track"><div class="db-fill" style="width:80%"></div></div><div class="db-pct">20%</div></div>
+            <div class="db-row"><div class="db-lbl">Historical Accuracy</div><div class="db-track"><div class="db-fill" style="width:75%"></div></div><div class="db-pct">10%</div></div>
+            <div class="db-row"><div class="db-lbl">Adversarial Review</div><div class="db-track"><div class="db-fill" style="width:100%"></div></div><div class="db-pct">5%</div></div>
+          </div>
+        </div>
+
+        <div class="zone-label fade-in" style="animation-delay: 180ms;">CONSENSUS ANSWER</div>
+
+        <!-- CARD 4 -->
+        <div class="col-full card card-accent-left fade-in" style="animation-delay: 240ms;">
+          <div class="ca-header">
+            <div class="eyebrow">CONSENSUS ANSWER</div>
+            <span class="pill pill-emerald">100% Consensus · 6 / 6 Models</span>
+          </div>
+          <div class="ca-strength">
+            <div class="ca-s-top">
+              <span style="font-size:10px; color:#545E78;">Consensus Strength</span>
+              <span style="font-size:11px; color:#10B981; font-family:monospace;">100%</span>
+            </div>
+            <div class="db-track"><div class="db-fill" style="width:100%; background:#10B981;"></div></div>
+          </div>
+          <div class="ca-text" id="consensus-text">
+            The current petrol price in Pune, India as of June 9, 2026 is <strong>₹111.55 per liter</strong> according to Goodreturns and CarDekho, while NDTV reports a marginally higher <strong>₹112.04 per liter</strong> — likely reflecting a specific station variance or a reporting delay.
+          </div>
+          <table class="ca-table">
+            <thead>
+              <tr><th>Source</th><th>Price (₹/L)</th><th>Date</th><th>Note</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Goodreturns</td><td>₹111.55</td><td>8 Jun 2026</td><td>IOC / PPAC retail list</td></tr>
+              <tr><td>CarDekho</td><td>₹111.55</td><td>9 Jun 2026</td><td>Updated dealer pricing</td></tr>
+              <tr><td>NDTV</td><td>₹112.04</td><td>9 Jun 2026</td><td>Possible station variance</td></tr>
+            </tbody>
+          </table>
+          <div class="ca-callout">
+            Note: Retail fuel prices vary by station (Shell vs IOC) due to dealer commissions. Cross-check at iocl.com or ppac.gov.in for real-time validation.
+          </div>
+          <div class="ca-actions">
+            <button class="btn-ca">🔊 Read Aloud</button>
+            <button class="btn-ca" onclick="copyAnswer()">📋 Copy Answer</button>
+          </div>
+          <div class="fu-chips">
+            <div class="fu-lbl">Suggested follow-ups</div>
+            <div class="fu-row">
+              <div class="fu-chip" onclick="triggerFollowUp('Diesel price in Pune')">&rarr; Diesel price in Pune</div>
+              <div class="fu-chip" onclick="triggerFollowUp('Why did prices change in June 2026?')">&rarr; Why did prices change in June 2026?</div>
+              <div class="fu-chip" onclick="triggerFollowUp('Pune vs Mumbai comparison')">&rarr; Pune vs Mumbai comparison</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="zone-label fade-in" style="animation-delay: 300ms;">EVIDENCE & VERIFICATION</div>
+
+        <!-- CARD 5 -->
+        <div class="col-left card fade-in" style="animation-delay: 360ms;">
+          <div class="eyebrow">WHY WE BELIEVE THIS</div>
+          <div class="belief-grid">
+            <div class="belief-item"><span class="bi-icon">✓</span><span class="bi-text">All 6 models agree on the same price range</span></div>
+            <div class="belief-item"><span class="bi-icon">✓</span><span class="bi-text">Grounded in live web sources from June 9, 2026</span></div>
+            <div class="belief-item"><span class="bi-icon">✓</span><span class="bi-text">No semantic outliers detected across model responses</span></div>
+            <div class="belief-item"><span class="bi-icon">✓</span><span class="bi-text">Adversarial audit passed all four challenge categories</span></div>
+            <div class="belief-item"><span class="bi-icon">✓</span><span class="bi-text">Low Shannon entropy confirms stable consensus</span></div>
+            <div class="belief-item"><span class="bi-icon">✓</span><span class="bi-text">Stale May 14th data was identified and discarded</span></div>
+          </div>
+        </div>
+
+        <!-- CARD 6 -->
+        <div class="col-right card fade-in" style="animation-delay: 420ms;">
+          <div class="eyebrow">EVIDENCE EXPLORER</div>
+          <div class="ee-sub">Source strength weighted by recency, authority, and corroboration</div>
+          <div class="ee-rows">
+            <div class="ee-row"><div class="ee-name">IOC / PPAC</div><div class="db-track"><div class="db-fill" style="width:100%"></div></div><div class="ee-note">Primary govt. source</div></div>
+            <div class="ee-row"><div class="ee-name">Goodreturns</div><div class="db-track"><div class="db-fill" style="width:92%"></div></div><div class="ee-note">Daily price index</div></div>
+            <div class="ee-row"><div class="ee-name">NDTV</div><div class="db-track"><div class="db-fill" style="width:84%"></div></div><div class="ee-note">News verification</div></div>
+            <div class="ee-row"><div class="ee-name">CarDekho</div><div class="db-track"><div class="db-fill" style="width:78%"></div></div><div class="ee-note">Dealer-matched data</div></div>
+          </div>
+        </div>
+
+        <!-- ADVANCED TOGGLE -->
+        <button class="advanced-toggle-btn fade-in" onclick="toggleAdvanced()" style="animation-delay: 480ms;">
+          <span>⚙ Advanced Analysis &mdash; Entropy · Threat Matrix · Audit Logs · Model Responses · Historical Accuracy</span>
+          <span id="toggle-arrow" class="toggle-arrow">▼ Show</span>
+        </button>
+
+        <!-- ADVANCED LAYER -->
+        <div id="advanced-layer" style="display: none;">
+          <div class="zone-label">RISK & AUDIT SIGNALS</div>
+
+          <!-- CARD 7 -->
+          <div class="col-left card">
+            <div class="eyebrow">RISK ANALYSIS</div>
+            <div class="risk-items">
+              <div class="risk-item"><span class="ri-icon warn">⚠</span><span class="bi-text">Price may vary ±₹0.50 by station type (Shell vs IOC vs HP)</span></div>
+              <div class="risk-item"><span class="ri-icon warn">⚠</span><span class="bi-text">Two sources show a ₹0.49 discrepancy — likely station-level variance</span></div>
+              <div class="risk-item"><span class="ri-icon info">ℹ</span><span class="bi-text">Petrol prices are revised daily at 6 AM IST — reflects June 9 morning revision</span></div>
+              <div class="risk-item"><span class="ri-icon info">ℹ</span><span class="bi-text">Future changes expected based on global crude oil benchmark movements</span></div>
+            </div>
+          </div>
+
+          <!-- CARD 8 -->
+          <div class="col-right card">
+            <div class="eyebrow">ADVERSARIAL CONSENSUS SIMULATION</div>
+            <div class="adv-sim-grid">
+              <div class="sim-cell"><div class="sim-q">Can this data be outdated or stale?</div><div class="sim-v">✓ Pass — May 14 data discarded</div></div>
+              <div class="sim-cell"><div class="sim-q">Can any source be financially manipulated?</div><div class="sim-v">✓ Pass — 4 sources cross-verified</div></div>
+              <div class="sim-cell"><div class="sim-q">Any strong model disagreement?</div><div class="sim-v">✓ Pass — no outlier dissenter</div></div>
+              <div class="sim-cell"><div class="sim-q">Hallucination or fabricated price?</div><div class="sim-v">✓ None detected</div></div>
+            </div>
+            <div class="audit-log">
+              <div>
+                <div class="al-item-h" style="color:#F59E0B">⚠ Auditor Flagged Discrepancy</div>
+                <div class="al-item-b">Initial synthesis referenced a May 14th price drop to ₹105.88 without validating the June 9th date constraint.</div>
+              </div>
+              <div>
+                <div class="al-item-h" style="color:#10B981">✓ Reconstructor Correction Applied</div>
+                <div class="al-item-b">Re-grounded to June 9th NDTV (₹112.04) and Goodreturns (₹111.55). Stale May datapoints discarded.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="zone-label">RELIABILITY SIGNALS</div>
+
+          <!-- CARD 9 -->
+          <div class="col-left card">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <div class="eyebrow">AGREEMENT STABILITY</div>
+              <div style="font-size:11px; font-family:monospace; color:#545E78;">Shannon Entropy: 0.803 bits</div>
+            </div>
+            <div class="ent-v">
+              <div class="ent-track"><div class="ent-fill"></div></div>
+              <div class="ent-lbls"><span>Unstable</span><span>Stable</span></div>
+              <div class="ent-verdict">✓ Stable Consensus — All models converged on the same price range.</div>
+            </div>
+            <div class="ent-mini">
+              <div class="em-cell"><div class="rcc-v">6</div><div class="rcc-l">Models Consulted</div></div>
+              <div class="em-cell"><div class="rcc-v">6</div><div class="rcc-l">In Agreement</div></div>
+              <div class="em-cell"><div class="rcc-v">0</div><div class="rcc-l">Outlier Dissenters</div></div>
+            </div>
+          </div>
+
+          <!-- CARD 10 -->
+          <div class="col-right card">
+            <div class="eyebrow">THREAT & UNCERTAINTY MATRIX</div>
+            <div class="ee-sub">Intelligence-grade signal analysis across 6 dimensions</div>
+            <div class="tu-matrix">
+              <div class="rcc-cell"><div class="rcc-v">91%</div><div class="rcc-l">Reliability Index</div></div>
+              <div class="rcc-cell"><div class="rcc-v">87%</div><div class="rcc-l">Evidence Strength</div></div>
+              <div class="rcc-cell"><div class="rcc-v">84%</div><div class="rcc-l">Adversarial Resistance</div></div>
+              <div class="rcc-cell"><div class="rcc-v">95%</div><div class="rcc-l">Source Freshness</div></div>
+              <div class="rcc-cell"><div class="rcc-v" style="color:#F59E0B">6%</div><div class="rcc-l">Hallucination Risk</div></div>
+              <div class="rcc-cell"><div class="rcc-v">4%</div><div class="rcc-l">Dissent Rate</div></div>
+            </div>
+          </div>
+
+          <div class="zone-label">MODEL COUNCIL</div>
+
+          <!-- CARD 11 -->
+          <div class="col-left card">
+            <div class="eyebrow">HISTORICAL MODEL ACCURACY</div>
+            <div class="ee-sub">Performance tracked across previous query runs</div>
+            <div class="hist-rows">
+              <div class="db-row"><div class="db-lbl">gemini-2.5-flash</div><div class="db-track"><div class="db-fill" style="width:96%; background:#10B981;"></div></div><div class="db-pct" style="color:#10B981;">96%</div></div>
+              <div class="db-row"><div class="db-lbl">llama-3.3-70b (groq)</div><div class="db-track"><div class="db-fill" style="width:94%; background:#10B981;"></div></div><div class="db-pct" style="color:#10B981;">94%</div></div>
+              <div class="db-row"><div class="db-lbl">cerebras</div><div class="db-track"><div class="db-fill" style="width:90%; background:#10B981;"></div></div><div class="db-pct" style="color:#10B981;">90%</div></div>
+              <div class="db-row"><div class="db-lbl">mistral-large</div><div class="db-track"><div class="db-fill" style="width:88%; background:#3B82F6;"></div></div><div class="db-pct" style="color:#3B82F6;">88%</div></div>
+              <div class="db-row"><div class="db-lbl">nvidia-nim</div><div class="db-track"><div class="db-fill" style="width:85%; background:#3B82F6;"></div></div><div class="db-pct" style="color:#3B82F6;">85%</div></div>
+              <div class="db-row"><div class="db-lbl">cohere-command</div><div class="db-track"><div class="db-fill" style="width:82%; background:#3B82F6;"></div></div><div class="db-pct" style="color:#3B82F6;">82%</div></div>
+            </div>
+          </div>
+
+          <!-- CARD 12 -->
+          <div class="col-right card">
+            <div class="eyebrow">INDIVIDUAL MODEL RESPONSES</div>
+            <div class="model-cards">
+              <div class="mc-card">
+                <div class="mc-h"><div class="mr-dot"></div><div class="mc-name">gemini-2.5-flash</div><div class="mr-right">245ms</div><div style="font-size:11px; font-weight:600; color:#10B981;">0.96</div></div>
+                <div class="mc-bar" style="width:96%"></div>
+                <div class="mc-text">Price ranges ₹111.55–₹112.04. NDTV lists ₹112.04; other indices list ₹111.55.</div>
+              </div>
+              <div class="mc-card">
+                <div class="mc-h"><div class="mr-dot"></div><div class="mc-name">llama-3.3-70b</div><div class="mr-right">184ms</div><div style="font-size:11px; font-weight:600; color:#10B981;">0.94</div></div>
+                <div class="mc-bar" style="width:94%"></div>
+                <div class="mc-text">₹111.55/L confirmed for Jun 9, 2026. NDTV secondary rate ₹112.04.</div>
+              </div>
+              <div class="mc-card">
+                <div class="mc-h"><div class="mr-dot"></div><div class="mc-name">mistral-large</div><div class="mr-right">310ms</div><div style="font-size:11px; font-weight:600; color:#10B981;">0.91</div></div>
+                <div class="mc-bar" style="width:91%"></div>
+                <div class="mc-text">Petrol in Pune at ₹111.55. Cross-referenced PPAC data portal.</div>
+              </div>
+              <div class="mc-card">
+                <div class="mc-h"><div class="mr-dot"></div><div class="mc-name">nvidia-nim</div><div class="mr-right">222ms</div><div style="font-size:11px; font-weight:600; color:#10B981;">0.89</div></div>
+                <div class="mc-bar" style="width:89%"></div>
+                <div class="mc-text">Confirmed ₹111.55/L. Note dealer variance ±₹0.50.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CARD 13 -->
+          <div class="col-full disp-card">
+            <div class="eyebrow">OPERATIONAL DISPATCH TRACKER</div>
+            <div class="disp-pills">
+              <div class="dp-active"><div class="dp-dot"></div>groq <span style="font-family:monospace; color:#545E78;">184ms</span></div>
+              <div class="dp-active"><div class="dp-dot"></div>gemini <span style="font-family:monospace; color:#545E78;">245ms</span></div>
+              <div class="dp-active"><div class="dp-dot"></div>mistral <span style="font-family:monospace; color:#545E78;">310ms</span></div>
+              <div class="dp-active"><div class="dp-dot"></div>nvidia_nim <span style="font-family:monospace; color:#545E78;">222ms</span></div>
+              <div class="dp-active"><div class="dp-dot"></div>cohere <span style="font-family:monospace; color:#545E78;">412ms</span></div>
+              <div class="dp-active"><div class="dp-dot"></div>cerebras <span style="font-family:monospace; color:#545E78;">198ms</span></div>
+              <div class="dp-skip">— openrouter_llama3</div>
+              <div class="dp-skip">— openrouter_gemma</div>
+            </div>
+          </div>
+          
+        </div>
+
+        <!-- NEW QUERY CTA -->
+        <div class="col-full new-q-wrap fade-in" style="animation-delay: 540ms;">
+          <button class="btn-new-q" onclick="resetToSearch()">← Verify New Query</button>
+        </div>
+
+      </div>
+
+      <!-- SIDEBAR -->
+      <div id="results-sidebar" class="fade-in" style="animation-delay: 0ms;">
+        
+        <!-- SIDEBAR CARD 1 -->
+        <div class="card">
+          <div class="eyebrow">FINAL TRUST SCORE</div>
+          <div class="trust-score-num">91%</div>
+          <div class="trust-score-lbl">HIGH CONFIDENCE</div>
+          <div class="trust-bar-bg"><div class="trust-bar-fill"></div></div>
+          <div class="mini-stats-row">
+            <div class="mini-stat"><div class="mini-stat-v">100%</div><div class="mini-stat-l">Consensus</div></div>
+            <div class="mini-stat"><div class="mini-stat-v">4</div><div class="mini-stat-l">Sources</div></div>
+            <div class="mini-stat"><div class="mini-stat-v">1.2s</div><div class="mini-stat-l">Query time</div></div>
+          </div>
+        </div>
+
+        <!-- SIDEBAR CARD 2 -->
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="eyebrow" style="margin:0;">MODELS CONSULTED</div>
+            <div style="font-size:12px; font-weight:600; color:#10B981;">6 / 8</div>
+          </div>
+          <div style="margin-top:10px;">
+            <div class="model-row"><div class="mr-dot"></div><div class="mr-name">groq</div><div class="mr-right">184ms <span style="color:#10B981">✓</span></div></div>
+            <div class="model-row"><div class="mr-dot"></div><div class="mr-name">gemini</div><div class="mr-right">245ms <span style="color:#10B981">✓</span></div></div>
+            <div class="model-row"><div class="mr-dot"></div><div class="mr-name">mistral</div><div class="mr-right">310ms <span style="color:#10B981">✓</span></div></div>
+            <div class="model-row"><div class="mr-dot"></div><div class="mr-name">nvidia_nim</div><div class="mr-right">222ms <span style="color:#10B981">✓</span></div></div>
+            <div class="model-row"><div class="mr-dot"></div><div class="mr-name">cohere</div><div class="mr-right">412ms <span style="color:#10B981">✓</span></div></div>
+            <div class="model-row"><div class="mr-dot"></div><div class="mr-name">cerebras</div><div class="mr-right">198ms <span style="color:#10B981">✓</span></div></div>
+            <div class="model-row"><div class="mr-dot skipped"></div><div class="mr-name skipped">openrouter_llama3</div><div class="mr-right">—</div></div>
+            <div class="model-row"><div class="mr-dot skipped"></div><div class="mr-name skipped">openrouter_gemma</div><div class="mr-right">—</div></div>
+          </div>
+        </div>
+
+        <!-- SIDEBAR CARD 3 -->
+        <div class="card">
+          <div class="qinfo-row"><span class="qinfo-l">Query Type</span><span class="badge pill-emerald">Factual</span></div>
+          <div class="qinfo-row"><span class="qinfo-l">Web Context</span><span class="badge pill-emerald">Live</span></div>
+          <div class="qinfo-row"><span class="qinfo-l">Adversarial</span><span class="badge pill-emerald">Active</span></div>
+          <div class="qinfo-row"><span class="qinfo-l">Privacy Filter</span><span class="badge pill-amber">On</span></div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const panelSearch  = document.getElementById('panel-search');
+    const panelCalib   = document.getElementById('panel-calibration');
+    const panelLoader  = document.getElementById('panel-loader');
+    const panelResults = document.getElementById('panel-results');
+
+    function showPanel(panel) {
+      [panelSearch, panelCalib, panelLoader, panelResults]
+        .forEach(p => p.style.display = 'none');
+      
+      if (panel === panelResults) {
+        panel.style.display = 'grid';
+      } else {
+        panel.style.display = 'flex';
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function startEnhancement() {
+      const raw = document.getElementById('query-input').value.trim();
+      if (!raw) return;
+      document.getElementById('diff-original').textContent = '- ' + raw;
+      const enhanced = `+ Provide the current details for "${raw}", focusing on quantitative facts, numeric figures, verified sources, and present in comparison tables with publication dates and credibility scores.`;
+      document.getElementById('diff-enhanced').textContent = enhanced;
+      document.getElementById('refined-input').value = enhanced.slice(2);
+      showPanel(panelCalib);
+    }
+
+    function resetToOriginal() {
+      document.getElementById('refined-input').value =
+        document.getElementById('query-input').value;
+    }
+
+    function cancelFlow() {
+      showPanel(panelSearch);
+    }
+
+    function startPipeline() {
+      showPanel(panelLoader);
+
+      const statuses = [
+        'Fetching live web context via DuckDuckGo...',
+        'Querying model council (Groq, Gemini, Mistral)...',
+        'Cross-checking answers and running trust weighting...',
+        'Triggering adversarial verifier audit...',
+        'Reconstructing consensus answer...'
+      ];
+
+      const steps = document.querySelectorAll('.step-item');
+      const dots  = document.querySelectorAll('.model-dot');
+      const statusEl = document.getElementById('loader-status');
+
+      steps.forEach(s => {
+        s.querySelector('.step-icon').textContent = '⟳';
+        s.querySelector('.step-icon').style.color = '#545E78';
+        s.querySelector('.step-text').style.color = '#8B93A8';
+      });
+      dots.forEach(d => d.classList.remove('active'));
+      statusEl.textContent = 'Initializing...';
+
+      statuses.forEach((msg, i) => {
+        setTimeout(() => {
+          statusEl.textContent = msg;
+          if (steps[i]) {
+            steps[i].querySelector('.step-icon').textContent = '✓';
+            steps[i].querySelector('.step-icon').style.color = '#10B981';
+            steps[i].querySelector('.step-text').style.color = '#F0F2F8';
+          }
+          if (dots[i]) dots[i].classList.add('active');
+        }, i * 850);
+      });
+
+      setTimeout(() => showPanel(panelResults), 5200);
+    }
+
+    function resetToSearch() {
+      document.getElementById('query-input').value = '';
+      document.getElementById('advanced-layer').style.display = 'none';
+      document.getElementById('toggle-arrow').textContent = '▼ Show';
+      document.getElementById('toggle-arrow').classList.remove('open');
+      showPanel(panelSearch);
+    }
+
+    function toggleAdvanced() {
+      const layer = document.getElementById('advanced-layer');
+      const arrow = document.getElementById('toggle-arrow');
+      const isHidden = layer.style.display === 'none' || layer.style.display === '';
+      layer.style.display = isHidden ? 'contents' : 'none';
+      arrow.textContent = isHidden ? '▲ Hide' : '▼ Show';
+      arrow.classList.toggle('open', isHidden);
+    }
+
+    function triggerFollowUp(query) {
+      document.getElementById('query-input').value = query;
+      startEnhancement();
+    }
+
+    function selectQuery(val) {
+      document.getElementById('query-input').value = val;
+    }
+
+    function copyAnswer() {
+      const text = document.getElementById('consensus-text').innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Answer copied to clipboard');
+      });
+    }
+
+    document.getElementById('query-input')
+      .addEventListener('keydown', e => {
+        if (e.key === 'Enter') startEnhancement();
+      });
+      
+    showPanel(panelSearch);
+  </script>
+</body>
+</html>
